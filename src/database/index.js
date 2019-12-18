@@ -13,13 +13,13 @@ module.exports = {
                 mongoose.set('useFindAndModify', false);
                 mongoose.set('useCreateIndex', true);
     
-                mongoose.connect(mongoDB, { useNewUrlParser: true });
+                await mongoose.connect(mongoDB, { useNewUrlParser: true });
                 mongoose.Promise = global.Promise;
                 dbConnection = mongoose.connection;
     
                 connected = true;
             } catch (e) {
-                logger.warn(`Could not connect to database (${config.database.username}@${config.database.host}:${config.database.port}/${config.database.table}) retrying...`);
+                logger.warn(`Could not connect to database (${config.database.username}@${config.database.host}:${config.database.port}/${config.database.table}) (error - ${e.toString()}) retrying...`);
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
         } while (!connected);
