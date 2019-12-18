@@ -1,6 +1,7 @@
 /dist/config.json
 /src
 /logs
+/build
 /npm-debug.log
 node_modules
 .DS_Store
