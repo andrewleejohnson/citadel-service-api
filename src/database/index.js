@@ -25,6 +25,6 @@ module.exports = {
         } while (!connected);
     
         logger.info(`Successfully connected to database (${config.database.username}@${config.database.host}:${config.database.port}/${config.database.table})`);
-        callback(dbConnection); 
+        callback(dbConnection);
     }
 };
