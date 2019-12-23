@@ -247,7 +247,12 @@ module.exports = {
                         case "playlist":
                         case "channel":
                         case "tag":
-                            query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
+                            switch (filter.type.value) {
+                                case "videos":
+                                case "plays":
+                                    query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
+                                    break;
+                            }
                             break;
                         case "screen":
                             // bypass
@@ -438,6 +443,16 @@ module.exports = {
 
                         if (!screen) {
                             screen = await Screen.findById(statistic.resource.id);
+
+                            // check for primary screen tag
+                            if (filter.primaryFilterType && filter.primaryFilterType.value === 'tag') {
+                                const hasTag = !!screen.tags.find(tag => tag.toString() === filter.primaryResource._id.toString());
+                                if (!hasTag) {
+                                    // short circuit
+                                    return;
+                                }
+                            }
+
                             objectCache.set(statistic.resource.id.toString(), screen);
                             relevantScreens.push(screen);
                         }

@@ -13,7 +13,7 @@ module.exports = {
                 mongoose.set('useFindAndModify', false);
                 mongoose.set('useCreateIndex', true);
     
-                await mongoose.connect(mongoDB, { useNewUrlParser: true });
+                await mongoose.connect(mongoDB, { useNewUrlParser: true, useUnifiedTopology: true });
                 mongoose.Promise = global.Promise;
                 dbConnection = mongoose.connection;
     
