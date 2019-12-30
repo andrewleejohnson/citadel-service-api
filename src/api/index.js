@@ -16,7 +16,7 @@ export default ({ config, db }) => {
 
         let keyProgress = progress.getStatus(key);
 
-        res.send({ status: 'ok', progress: keyProgress });
+        res.send({ status: 'ok', progress: keyProgress }); 
     });
 
     router.post('/report', async (req, res) => {
