@@ -348,7 +348,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey }));
                     break;
                 case "plays":
                     await stream.eachAsync(async (statistic) => {
@@ -394,7 +394,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "screens":
                     await stream.eachAsync(async (screen) => {
@@ -422,7 +422,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "playstime":
                     keys = ['Screen Name'];
