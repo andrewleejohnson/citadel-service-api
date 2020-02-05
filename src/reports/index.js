@@ -414,6 +414,19 @@ module.exports = {
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                             row["Screen ID"] = screen.searchToken;
+                            row["Last Played"] = '';
+                            if (screen.issues && screen.issues.length > 0) {
+
+                                let notPlayingIssue = screen.issues.find(issue => issue.type === 'notplaying');
+                                // resolve playback issues if relevant
+
+                                if (notPlayingIssue) {
+                                    const from = (new Date(notPlayingIssue.when)).valueOf();
+                                    const to = Date.now();
+                                    const number_days = Math.round((to - from) / (1000 * 60 * 60 * 24));
+                                    row["Last Played"] = `${number_days} days ago`;
+                                }
+                            }
                         }
 
                         data.push(row);
