@@ -11,6 +11,7 @@
     "express": "^4.17.1",
     "express-winston": "^4.0.1",
     "http": "0.0.0",
+    "moment": "^2.24.0",
     "mongoose": "^5.7.14",
     "node-cache": "^5.0.2",
     "pdf-lib": "^1.2.1",

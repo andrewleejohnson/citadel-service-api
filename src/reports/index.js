@@ -16,6 +16,9 @@ import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
 import File from '../database/models/file';
 
+import moment from 'moment';
+
+
 module.exports = {
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
         return new Promise(async (resolve, reject) => {
@@ -348,7 +351,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey }));
                     break;
                 case "plays":
                     await stream.eachAsync(async (statistic) => {
@@ -373,8 +376,9 @@ module.exports = {
 
                         const duration = video.meta.find(meta => meta.key === 'duration');
 
+                        const m = moment(statistic.when).subtract(filter.tzOffset, 'minute');
                         const row = {
-                            ["When"]: statistic.when.toLocaleString("en-US", { month: '2-digit', year: '2-digit', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
+                            ["Last Played"]: m.format('l hh:mm A'),
                             ["Video Name"]: video.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: screen.name,
@@ -394,7 +398,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "screens":
                     await stream.eachAsync(async (screen) => {
@@ -414,6 +418,19 @@ module.exports = {
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                             row["Screen ID"] = screen.searchToken;
+                            row["Last Played"] = '';
+                            if (screen.issues && screen.issues.length > 0) {
+
+                                let notPlayingIssue = screen.issues.find(issue => issue.type === 'notplaying');
+                                // resolve playback issues if relevant
+
+                                if (notPlayingIssue) {
+                                    const from = (new Date(notPlayingIssue.when)).valueOf();
+                                    const to = Date.now();
+                                    const number_days = Math.round((to - from) / (1000 * 60 * 60 * 24));
+                                    row["Last Played"] = `${number_days} days ago`;
+                                }
+                            }
                         }
 
                         data.push(row);
@@ -422,7 +439,7 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, data, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "playstime":
                     keys = ['Screen Name'];
