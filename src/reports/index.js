@@ -16,6 +16,9 @@ import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
 import File from '../database/models/file';
 
+import moment from 'moment';
+
+
 module.exports = {
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
         return new Promise(async (resolve, reject) => {
@@ -373,8 +376,9 @@ module.exports = {
 
                         const duration = video.meta.find(meta => meta.key === 'duration');
 
+                        const m = moment(statistic.when).subtract(filter.tzOffset, 'minute');
                         const row = {
-                            ["When"]: statistic.when.toLocaleString("en-US", { month: '2-digit', year: '2-digit', day: 'numeric', hour: 'numeric', minute: 'numeric' }),
+                            ["Last Played"]: m.format('l hh:mm A'),
                             ["Video Name"]: video.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: screen.name,
