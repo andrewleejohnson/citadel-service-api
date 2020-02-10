@@ -21,6 +21,7 @@ import moment from 'moment';
 
 module.exports = {
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
+        console.log(filter);
         return new Promise(async (resolve, reject) => {
             let output;
 
@@ -122,7 +123,7 @@ module.exports = {
 
                     writeProperty('Report type', filter.type.value);
 
-                    if (filter.primaryResource) {
+                    if (filter.primaryResource.hasOwnProperty('name') && filter.primaryResource.hasOwnProperty('value')) {
                         writeProperty('Report filtered by', `${filter.primaryResource.name} [${filter.primaryFilterType.value}]`);
                     }
 
@@ -413,7 +414,7 @@ module.exports = {
                             ["Device Model"]: screen.deviceModel,
                             ["Version"]: screen.version,
                             ["Location"]: (screen.location && screen.location.valid) ? screen.location.history[screen.location.history.length - 1].summary : null,
-                            ["PIN"]: screen.pin
+                            ["PIN"]: screen.pin,
                         };
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
@@ -509,6 +510,36 @@ module.exports = {
                     logger.debug('Completed post processing of batch');
 
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    break;
+
+                case "screenissues":
+                    keys = [
+                        "Screen ID",
+                        "Screen Name",
+                        "Last Played"
+                    ];
+
+                    if (exportConfig.screens || exportConfig.screens.length) {
+                        exportConfig.screens.forEach(screen => {
+                            const row = {
+                                "Screen ID": screen.searchToken,
+                                "Screen Name": screen.name,
+                                "Last Played": ''
+                            }
+                            if (screen.issues && screen.issues.length) {
+                                const notPlayingIssue = screen.issues.find(issue => issue.type === 'notplaying');
+                                if (notPlayingIssue) {
+                                    const m = moment(notPlayingIssue.when).subtract(filter.tzOffset, 'minute');
+                                    row['Last Played'] = m.format('l hh:mm A');
+                                }
+                            }
+                            data.push(row);
+                        })
+                    }
+
+                    logger.debug('Completed post processing of screen issues');
+
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }))
                     break;
             }
         });
