@@ -242,39 +242,59 @@ module.exports = {
                         when: {
                             $gte: filter.startTime,
                             $lte: filter.endTime
-                        },
-                        type: "play"
+                        }
                     };
 
                     switch (filter.primaryFilterType.value) {
                         case "video":
+                            query['file'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                            break;
                         case "playlist":
+                            query['playlist'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                            break;
                         case "channel":
+                            query['channel'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                            break;
                         case "tag":
+                            /*
                             switch (filter.type.value) {
                                 case "videos":
                                 case "plays":
                                     query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
                                     break;
                             }
+                            */
                             break;
                         case "screen":
                             // bypass
-                            query['resource.id'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                            query['screen'] = mongoose.Types.ObjectId(filter.primaryResource._id);
                             break;
                     }
 
                     if (filter.secondaryFilterType && filter.secondaryFilterType.value) {
                         switch (filter.secondaryFilterType.value) {
                             case "video":
+                                query['file'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
+                                break;
                             case "playlist":
+                                query['playlist'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
+                                break;
                             case "channel":
+                                query['channel'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
+                                break;
                             case "tag":
-                                query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.secondaryResource._id) } }
+                                /*
+                                switch (filter.type.value) {
+                                    case "videos":
+                                    case "plays":
+                                        query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
+                                        break;
+                                }
+                                */
                                 break;
                             case "screen":
                                 // bypass
-                                query['resource.id'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
+                                query['screen'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
                                 break;
                         }
                     }
@@ -318,11 +338,11 @@ module.exports = {
                         }
 
                         let relevantDataRow;
-                        const videoAsset = statistic.assets.find(asset => asset.name === 'video');
-                        let video = objectCache.get(videoAsset.id.toString());
+                        const videoAsset = statistic.file.toString();
+                        let video = objectCache.get(videoAsset);
                         if (!video) {
-                            video = await File.findById(videoAsset.id);
-                            objectCache.set(videoAsset.id.toString(), video);
+                            video = await File.findById(videoAsset);
+                            objectCache.set(videoAsset, video);
 
                             const duration = video.meta.find(meta => meta.key === 'duration');
 
@@ -361,18 +381,18 @@ module.exports = {
                             progress.setStatus(uploadKey, position / count, 'database');
                         }
 
-                        const videoAsset = statistic.assets.find(asset => asset.name === 'video');
-                        let video = objectCache.get(videoAsset.id.toString());
+                        const videoAsset = statistic.file.toString();
+                        let video = objectCache.get(videoAsset);
                         if (!video) {
-                            video = await File.findById(videoAsset.id);
-                            objectCache.set(videoAsset.id.toString(), video);
+                            video = await File.findById(videoAsset);
+                            objectCache.set(videoAsset, video);
                         }
 
-                        let screen = objectCache.get(statistic.resource.id.toString());
+                        let screen = objectCache.get(statistic.screen.toString());
 
                         if (!screen) {
-                            screen = await Screen.findById(statistic.resource.id);
-                            objectCache.set(statistic.resource.id.toString(), screen);
+                            screen = await Screen.findById(statistic.screen.toString());
+                            objectCache.set(statistic.screen.toString(), screen);
                         }
 
                         const duration = video.meta.find(meta => meta.key === 'duration');
@@ -457,10 +477,10 @@ module.exports = {
                             progress.setStatus(uploadKey, position / count, 'database');
                         }
 
-                        let screen = objectCache.get(statistic.resource.id.toString());
+                        let screen = objectCache.get(statistic.screen.toString());
 
                         if (!screen) {
-                            screen = await Screen.findById(statistic.resource.id);
+                            screen = await Screen.findById(statistic.screen);
 
                             // check for primary screen tag
                             if (filter.primaryFilterType && filter.primaryFilterType.value === 'tag') {
@@ -471,7 +491,7 @@ module.exports = {
                                 }
                             }
 
-                            objectCache.set(statistic.resource.id.toString(), screen);
+                            objectCache.set(statistic.screen.toString(), screen);
                             relevantScreens.push(screen);
                         }
 
@@ -483,7 +503,7 @@ module.exports = {
 
                         for (let date = filter.startTime; date < filter.endTime; date = new Date(date.valueOf() + 1000 * 60 * 60 * 24)) {
                             let relevantPlays = relevantStatistics.filter(statistic => {
-                                let isRelevantScreen = statistic.resource.id.toString() === screen._id.toString();
+                                let isRelevantScreen = statistic.screen.toString() === screen._id.toString();
 
                                 if (!isRelevantScreen) {
                                     return false;
