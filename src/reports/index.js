@@ -18,6 +18,8 @@ import { createResourceMutex } from '../util/mutex';
 
 module.exports = {
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
+        logger.debug(`Completed post processing of batch with ${data.length} keys`);
+
         return new Promise(async (resolve, reject) => {
             let output;
 
@@ -223,13 +225,13 @@ module.exports = {
 
             let query;
             let stream;
-            let count;
             let keys;
 
             switch (filter.type.value) {
                 case "videos":
                 case "plays":
-                case "playstime":
+                case "playsscreentime":
+                case "playsvideotime":
                     query = {
                         when: {
                             $gte: filter.startTime,
@@ -290,10 +292,9 @@ module.exports = {
                                 break;
                         }
                     }
-
-                    // stream = Statistic.find(query).lean().cursor({ batchSize: 1500 });
                     break;
                 case "screens":
+                case "screenissues":
                     query = { deleted: { $exists: false } };
 
                     switch (filter.primaryFilterType.value) {
@@ -307,22 +308,16 @@ module.exports = {
                             query['tags'] = mongoose.Types.ObjectId(filter.primaryResource._id);
                             break;
                     }
-
-                    stream = Screen.find(query).lean().cursor();
                     break;
             }
 
             const data = [];
             let results;
-            const objectCache = new NodeCache({ stdTTL: 0, checkperiod: 300, useClones: false });
 
-            logger.debug(`Processing aggregate batch...`);
-
-            let resourceMutex = createResourceMutex();
+            logger.debug(`Processing aggregate batch for ${filter.type.value}...`);
 
             switch (filter.type.value) {
                 case "videos":
-
                     results = await Statistic.aggregate([
                         {
                             $match: query
@@ -332,14 +327,12 @@ module.exports = {
                                 from: "files",
                                 localField: "file",
                                 foreignField: "_id",
-                                as: "files"
+                                as: "file"
                             }
                         },
                         {
-                            $project: {
-                                file: {
-                                    $arrayElemAt: ["$files", 0]
-                                }
+                            $unwind: {
+                                path: "$file"
                             }
                         },
                         {
@@ -372,8 +365,6 @@ module.exports = {
                         });
                     }
 
-                    logger.debug('Completed post processing of batch');
-
                     keys = data[0] ? Object.keys(data[0]) : [];
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey }));
                     break;
@@ -387,7 +378,7 @@ module.exports = {
                                 from: "files",
                                 localField: "file",
                                 foreignField: "_id",
-                                as: "files"
+                                as: "file"
                             }
                         },
                         {
@@ -395,25 +386,17 @@ module.exports = {
                                 from: "screens",
                                 localField: "screen",
                                 foreignField: "_id",
-                                as: "screens"
+                                as: "screen"
                             }
                         },
                         {
-                            $project: {
-                                _id: "$_id",
-                                file: {
-                                    $arrayElemAt: [
-                                        "$files",
-                                        0.0
-                                    ]
-                                },
-                                screen: {
-                                    $arrayElemAt: [
-                                        "$screens",
-                                        0.0
-                                    ]
-                                },
-                                when: "$when"
+                            $unwind: {
+                                path: "$file"
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$screen"
                             }
                         },
                         {
@@ -438,7 +421,7 @@ module.exports = {
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
                         const m = moment(row.when).subtract(filter.tzOffset, 'minute');
-                        
+
                         let entry = {
                             ["Last Played"]: m.format('l hh:mm A'),
                             ["Video Name"]: row.file.name,
@@ -457,142 +440,261 @@ module.exports = {
                         data.push(entry);
                     }
 
-                    logger.debug('Completed post processing of batch');
-
                     keys = data[0] ? Object.keys(data[0]) : [];
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "screens":
-                    await stream.eachAsync(async (screen) => {
-                        position++;
+                    results = await Screen.aggregate([
+                        {
+                            $match: query
+                        }
+                    ]);
 
-                        const row = {
-                            ["Screen Name"]: screen.name,
-                            ["Status"]: screen.status,
-                            ["Device Model"]: screen.deviceModel,
-                            ["Version"]: screen.version,
-                            ["Location"]: (screen.location && screen.location.valid) ? screen.location.history[screen.location.history.length - 1].summary : null,
-                            ["PIN"]: screen.pin,
+                    for (const row of results) {
+                        const dataRow = {
+                            ["Screen Name"]: row.name,
+                            ["Status"]: row.status,
+                            ["Device Model"]: row.deviceModel,
+                            ["Version"]: row.version,
+                            ["Location"]: (row.location && row.location.valid) ? row.location.history[row.location.history.length - 1].summary : null,
+                            ["PIN"]: row.pin,
                         };
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
-                            row["Screen ID"] = screen.searchToken;
-                            row["Last Played"] = '';
-                            if (screen.issues && screen.issues.length > 0) {
-
-                                let notPlayingIssue = screen.issues.find(issue => issue.type === 'notplaying');
-                                // resolve playback issues if relevant
+                            dataRow["Screen ID"] = screen.searchToken;
+                            dataRow["Last Played"] = '';
+                            if (row.issues && row.issues.length > 0) {
+                                let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
 
                                 if (notPlayingIssue) {
-                                    const from = (new Date(notPlayingIssue.when)).valueOf();
-                                    const to = Date.now();
-                                    const number_days = Math.round((to - from) / (1000 * 60 * 60 * 24));
-                                    row["Last Played"] = `${number_days} days ago`;
+                                    const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when).valueOf()) / (1000 * 60 * 60 * 24));
+                                    dataRow["Last Played"] = `${numberDays} days ago`;
                                 }
                             }
                         }
 
-                        data.push(row);
-                    });
-
-                    logger.debug('Completed post processing of batch');
+                        data.push(dataRow);
+                    }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
-                case "playstime":
-                    keys = ['Screen Name'];
-                    for (let date = filter.startTime; date < filter.endTime; date = new Date(date.valueOf() + 1000 * 60 * 60 * 24)) {
-                        keys.push(date);
-                    }
+                case "playsvideotime":
+                    keys = ['Video Name'];
 
-                    let relevantStatistics = [];
-                    let relevantScreens = [];
-
-                    await stream.eachAsync(async (statistic) => {
-                        position++;
-
-                        let screen = objectCache.get(statistic.screen.toString());
-
-                        if (!screen) {
-                            screen = await Screen.findById(statistic.screen);
-
-                            // check for primary screen tag
-                            if (filter.primaryFilterType && filter.primaryFilterType.value === 'tag') {
-                                const hasTag = !!screen.tags.find(tag => tag.toString() === filter.primaryResource._id.toString());
-                                if (!hasTag) {
-                                    // short circuit
-                                    return;
+                    results = await Statistic.aggregate([
+                        {
+                            $match: query
+                        },
+                        {
+                            $project: {
+                                timestamp: {
+                                    $dateToString: {
+                                        format: "%m/%d/%Y",
+                                        date: "$when"
+                                    }
+                                },
+                                file: 1.0,
+                                screen: 1.0
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "screens",
+                                localField: "screen",
+                                foreignField: "_id",
+                                as: "screen"
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "files",
+                                localField: "file",
+                                foreignField: "_id",
+                                as: "file"
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$screen",
+                                preserveNullAndEmptyArrays: false
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$file",
+                                preserveNullAndEmptyArrays: false
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: "$timestamp",
+                                plays: {
+                                    $push: {
+                                        _id: "$file._id",
+                                        name: "$file.name"
+                                    }
+                                },
+                                distinct: {
+                                    $addToSet: {
+                                        _id: "$file._id",
+                                        name: "$file.name"
+                                    }
                                 }
                             }
-
-                            objectCache.set(statistic.screen.toString(), screen);
-                            relevantScreens.push(screen);
+                        },
+                        {
+                            $sort: {
+                                _id: 1
+                            }
                         }
+                    ]);
 
-                        relevantStatistics.push(statistic);
-                    });
+                    // postprocess results
+                    const relevantVideos =
+                        Array.from(
+                            new Set([].concat(
+                                ...results.map(row => row.distinct.map(distinct => JSON.stringify(distinct))))
+                            )
+                        ).map(distinct => JSON.parse(distinct));
 
-                    for (let screen of relevantScreens) {
-                        let screenArray = [screen.name];
-
-                        for (let date = filter.startTime; date < filter.endTime; date = new Date(date.valueOf() + 1000 * 60 * 60 * 24)) {
-                            let relevantPlays = relevantStatistics.filter(statistic => {
-                                let isRelevantScreen = statistic.screen.toString() === screen._id.toString();
-
-                                if (!isRelevantScreen) {
-                                    return false;
-                                }
-
-                                let firstHour = new Date(date);
-                                firstHour.setHours(0, 0, 0, 0);
-                                let lastHour = new Date(date);
-                                lastHour.setHours(23, 59, 59);
-                                let isRelevantTimeframe = firstHour < new Date(statistic.when) && lastHour > new Date(statistic.when);
-
-                                return isRelevantTimeframe;
-                            });
-                            screenArray.push(relevantPlays.length);
-                        }
-
-                        data.push(screenArray);
+                    for (const date of results) {
+                        keys.push(date['_id']);
                     }
 
-                    for (let i = 1; i < keys.length; i++) {
-                        keys[i] = keys[i].toLocaleDateString();
-                    }
+                    for (const video of relevantVideos) {
+                        const dataRow = [video.name];
 
-                    logger.debug('Completed post processing of batch');
+                        for (const row of results) {
+                            let playCount = row.plays.filter(play => play._id.toString() === video._id.toString()).length;
+                            dataRow.push(playCount);
+                        }
+
+                        data.push(dataRow);
+                    }
 
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
+                case "playsscreentime":
+                    keys = ['Screen Name'];
 
-                case "screenissues":
-                    keys = [
-                        "Screen ID",
-                        "Screen Name",
-                        "Last Played"
-                    ];
-
-                    if (exportConfig.screens || exportConfig.screens.length) {
-                        exportConfig.screens.forEach(screen => {
-                            const row = {
-                                "Screen ID": screen.searchToken,
-                                "Screen Name": screen.name,
-                                "Last Played": ''
+                    results = await Statistic.aggregate([
+                        {
+                            $match: query
+                        },
+                        {
+                            $project: {
+                                timestamp: {
+                                    $dateToString: {
+                                        format: "%m/%d/%Y",
+                                        date: "$when"
+                                    }
+                                },
+                                file: 1.0,
+                                screen: 1.0
                             }
-                            if (screen.issues && screen.issues.length) {
-                                const notPlayingIssue = screen.issues.find(issue => issue.type === 'notplaying');
-                                if (notPlayingIssue) {
-                                    const m = moment(notPlayingIssue.when).subtract(filter.tzOffset, 'minute');
-                                    row['Last Played'] = m.format('l hh:mm A');
+                        },
+                        {
+                            $lookup: {
+                                from: "screens",
+                                localField: "screen",
+                                foreignField: "_id",
+                                as: "screen"
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "files",
+                                localField: "file",
+                                foreignField: "_id",
+                                as: "file"
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$screen",
+                                preserveNullAndEmptyArrays: false
+                            }
+                        },
+                        {
+                            $unwind: {
+                                path: "$file",
+                                preserveNullAndEmptyArrays: false
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: "$timestamp",
+                                plays: {
+                                    $push: {
+                                        _id: "$screen._id",
+                                        name: "$screen.name"
+                                    }
+                                },
+                                distinct: {
+                                    $addToSet: {
+                                        _id: "$screen._id",
+                                        name: "$screen.name"
+                                    }
                                 }
                             }
-                            data.push(row);
-                        })
+                        },
+                        {
+                            $sort: {
+                                _id: 1
+                            }
+                        }
+                    ]);
+
+                    // postprocess results
+                    const relevantScreens =
+                        Array.from(
+                            new Set([].concat(
+                                ...results.map(row => row.distinct.map(distinct => JSON.stringify(distinct))))
+                            )
+                        ).map(distinct => JSON.parse(distinct));
+
+                    for (const date of results) {
+                        keys.push(date['_id']);
                     }
 
-                    logger.debug('Completed post processing of screen issues');
+                    for (const screen of relevantScreens) {
+                        const dataRow = [screen.name];
+
+                        for (const row of results) {
+                            let playCount = row.plays.filter(play => play._id.toString() === screen._id.toString()).length;
+                            dataRow.push(playCount);
+                        }
+
+                        data.push(dataRow);
+                    }
+
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    break;
+                case "screenissues":
+                    results = await Screen.aggregate([
+                        {
+                            $match: query
+                        }
+                    ]);
+
+                    keys = ["Screen ID", "Screen Name", "Last Played"];
+
+                    for (const row of results) {
+                        const dataRow = {
+                            "Screen ID": row.searchToken,
+                            "Screen Name": row.name,
+                            "Last Played": null
+                        }
+                        if (row.issues && row.issues.length) {
+                            const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
+                            if (notPlayingIssue) {
+                                const m = moment(notPlayingIssue.when).subtract(filter.tzOffset, 'minute');
+                                dataRow['Last Played'] = m.format('l hh:mm A');
+                            }
+                        }
+                        data.push(dataRow);
+                    }
 
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }))
                     break;
