@@ -2,21 +2,12 @@ import { Router } from 'express';
 import crypto from 'crypto';
 
 import reports from '../reports';
-import progress from '../progress';
 
 export default ({ config, db }) => {
     let router = Router();
 
     router.get('/status', async (req, res) => {
         res.send('OK');
-    });
-
-    router.get('/progress', async (req, res) => {
-        let { key } = req.query;
-
-        let keyProgress = progress.getStatus(key);
-
-        res.send({ status: 'ok', progress: keyProgress }); 
     });
 
     router.post('/report', async (req, res) => {

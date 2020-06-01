@@ -1,32 +1,27 @@
 import xlsx from 'xlsx';
-import request from 'request';
 import NodeCache from 'node-cache';
 import csvStringify from 'csv-stringify/lib/sync';
-
 import * as pdfLib from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
+import co from 'co';
 import * as pdfLibDist from 'pdf-lib/dist/pdf-lib';
+import moment from 'moment';
 
 import logger from '../logger';
 import aws from '../aws';
-import progress from '../progress';
 import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
 import File from '../database/models/file';
-
-import moment from 'moment';
-
+import { createResourceMutex } from '../util/mutex';
 
 module.exports = {
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
-        console.log(filter);
         return new Promise(async (resolve, reject) => {
             let output;
 
             const aoa = [keys, ...data.map(row => Object.keys(row).map(key => row[key]))];
-            progress.setStatus(uploadKey, 0, 'package');
 
             switch (exportConfig.format.value) {
                 case "csv":
@@ -200,7 +195,6 @@ module.exports = {
                     buildRow(aoa[0], boldFont, smallFontSize, true);
 
                     for (let i = 1; i < aoa.length; i++) {
-                        progress.setStatus(uploadKey, i / aoa.length, 'package');
                         buildRow(aoa[i], defaultFont, smallFontSize, false);
 
                         if (yWritingIndex <= yPadding) {
@@ -214,7 +208,6 @@ module.exports = {
                     break;
             }
 
-            progress.setStatus(uploadKey, 1, 'package');
             aws.uploadResource(output, `reports/${uploadKey}`);
             resolve(true);
         });
@@ -222,7 +215,6 @@ module.exports = {
 
     generateReport: async ({ user, filter, exportConfig, uploadKey }) => {
         return new Promise(async (resolve, reject) => {
-            progress.setStatus(uploadKey, 0, 'database');
             const timezoneOffset = new Date().getTimezoneOffset();
             filter.startTime = new Date(new Date(filter.startTime).valueOf() + (timezoneOffset * 1000 * 60));
             filter.startTime.setHours(0, 0, 0, 0);
@@ -299,8 +291,7 @@ module.exports = {
                         }
                     }
 
-                    stream = Statistic.find(query).lean().cursor();
-                    count = await Statistic.countDocuments(query);
+                    // stream = Statistic.find(query).lean().cursor({ batchSize: 1500 });
                     break;
                 case "screens":
                     query = { deleted: { $exists: false } };
@@ -318,56 +309,68 @@ module.exports = {
                     }
 
                     stream = Screen.find(query).lean().cursor();
-                    count = await Screen.countDocuments(query);
                     break;
             }
 
-            let position = 0;
-            let reportingFrequency = 100;
             const data = [];
+            let results;
             const objectCache = new NodeCache({ stdTTL: 0, checkperiod: 300, useClones: false });
 
-            logger.debug(`Processing streaming batch... (anticipated dataset size: ${count})`);
+            logger.debug(`Processing aggregate batch...`);
+
+            let resourceMutex = createResourceMutex();
 
             switch (filter.type.value) {
                 case "videos":
-                    await stream.eachAsync(async (statistic) => {
-                        position++;
-                        if (position % reportingFrequency === 0) {
-                            progress.setStatus(uploadKey, position / count, 'database');
-                        }
 
-                        let relevantDataRow;
-                        const videoAsset = statistic.file.toString();
-                        let video = objectCache.get(videoAsset);
-                        if (!video) {
-                            video = await File.findById(videoAsset);
-                            objectCache.set(videoAsset, video);
-
-                            const duration = video.meta.find(meta => meta.key === 'duration');
-
-                            relevantDataRow = {
-                                ["Video Name"]: video.name,
-                                ["File Size (bytes)"]: video.size,
-                                ["Duration (seconds)"]: Math.round(duration.value),
-                                ["Plays"]: 0
-                            };
-
-                            if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
-                                relevantDataRow["Video ID"] = video._id.toString();
+                    results = await Statistic.aggregate([
+                        {
+                            $match: query
+                        },
+                        {
+                            $lookup: {
+                                from: "files",
+                                localField: "file",
+                                foreignField: "_id",
+                                as: "files"
                             }
-
-                            data.push(relevantDataRow);
+                        },
+                        {
+                            $project: {
+                                file: {
+                                    $arrayElemAt: ["$files", 0]
+                                }
+                            }
+                        },
+                        {
+                            $group: {
+                                _id: "$file._id",
+                                count: {
+                                    $sum: 1.0
+                                },
+                                name: {
+                                    $first: "$file.name"
+                                },
+                                size: {
+                                    $first: "$file.size"
+                                },
+                                meta: {
+                                    $first: "$file.meta"
+                                }
+                            }
                         }
+                    ]);
 
-                        if (!relevantDataRow) {
-                            relevantDataRow = data.find(row => row["Video Name"] === video.name);
-                        }
+                    for (const row of results) {
+                        const duration = row.meta.find(meta => meta.key === 'duration');
 
-                        if (relevantDataRow) {
-                            relevantDataRow["Plays"]++;
-                        }
-                    });
+                        data.push({
+                            ["Video Name"]: row.name,
+                            ["File Size (bytes)"]: row.size,
+                            ["Duration (seconds)"]: Math.round(duration.value),
+                            ["Plays"]: Math.floor(row.count)
+                        });
+                    }
 
                     logger.debug('Completed post processing of batch');
 
@@ -375,46 +378,84 @@ module.exports = {
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey }));
                     break;
                 case "plays":
-                    await stream.eachAsync(async (statistic) => {
-                        position++;
-                        if (position % reportingFrequency === 0) {
-                            progress.setStatus(uploadKey, position / count, 'database');
+                    results = await Statistic.aggregate([
+                        {
+                            $match: query
+                        },
+                        {
+                            $lookup: {
+                                from: "files",
+                                localField: "file",
+                                foreignField: "_id",
+                                as: "files"
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "screens",
+                                localField: "screen",
+                                foreignField: "_id",
+                                as: "screens"
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: "$_id",
+                                file: {
+                                    $arrayElemAt: [
+                                        "$files",
+                                        0.0
+                                    ]
+                                },
+                                screen: {
+                                    $arrayElemAt: [
+                                        "$screens",
+                                        0.0
+                                    ]
+                                },
+                                when: "$when"
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: "$_id",
+                                when: "$when",
+                                file: {
+                                    name: "$file.name",
+                                    size: "$file.size",
+                                    meta: "$file.meta"
+                                },
+                                screen: {
+                                    name: "$screen.name",
+                                    deviceModel: "$screen.deviceModel",
+                                    ip: "$screen.ip",
+                                    searchToken: "$screen.searchToken"
+                                }
+                            }
                         }
+                    ]);
 
-                        const videoAsset = statistic.file.toString();
-                        let video = objectCache.get(videoAsset);
-                        if (!video) {
-                            video = await File.findById(videoAsset);
-                            objectCache.set(videoAsset, video);
-                        }
-
-                        let screen = objectCache.get(statistic.screen.toString());
-
-                        if (!screen) {
-                            screen = await Screen.findById(statistic.screen.toString());
-                            objectCache.set(statistic.screen.toString(), screen);
-                        }
-
-                        const duration = video.meta.find(meta => meta.key === 'duration');
-
-                        const m = moment(statistic.when).subtract(filter.tzOffset, 'minute');
-                        const row = {
+                    for (const row of results) {
+                        const duration = row.file.meta.find(meta => meta.key === 'duration');
+                        const m = moment(row.when).subtract(filter.tzOffset, 'minute');
+                        
+                        let entry = {
                             ["Last Played"]: m.format('l hh:mm A'),
-                            ["Video Name"]: video.name,
+                            ["Video Name"]: row.file.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
-                            ["Screen Name"]: screen.name,
-                            ["Screen Model"]: screen.deviceModel,
-                            ["Screen IP"]: screen.ip,
-                            ["File Size (bytes)"]: video.size
+                            ["Screen Name"]: row.screen.name,
+                            ["Screen Model"]: row.screen.deviceModel,
+                            ["Screen IP"]: row.screen.ip,
+                            ["File Size (bytes)"]: row.file.size
                         };
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
-                            row["Statistic ID"] = statistic._id.toString();
-                            row["Screen ID"] = screen.searchToken;
+                            entry["Statistic ID"] = row._id.toString();
+                            entry["Screen ID"] = row.screen.searchToken;
                         }
 
-                        data.push(row);
-                    });
+                        data.push(entry);
+                    }
 
                     logger.debug('Completed post processing of batch');
 
@@ -424,9 +465,6 @@ module.exports = {
                 case "screens":
                     await stream.eachAsync(async (screen) => {
                         position++;
-                        if (position % reportingFrequency === 0) {
-                            progress.setStatus(uploadKey, position / count, 'database');
-                        }
 
                         const row = {
                             ["Screen Name"]: screen.name,
@@ -473,9 +511,6 @@ module.exports = {
 
                     await stream.eachAsync(async (statistic) => {
                         position++;
-                        if (position % reportingFrequency === 0) {
-                            progress.setStatus(uploadKey, position / count, 'database');
-                        }
 
                         let screen = objectCache.get(statistic.screen.toString());
 
