@@ -315,6 +315,7 @@ module.exports = {
             let results;
 
             logger.debug(`Processing aggregate batch for ${filter.type.value}...`);
+            logger.verbose(`Executing with query match (${JSON.stringify(query)})`);
 
             switch (filter.type.value) {
                 case "videos":
