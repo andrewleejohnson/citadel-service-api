@@ -419,9 +419,6 @@ module.exports = {
                         }
                     ]);
 
-                    console.log(results);
-                    console.log(await Statistic.countDocuments());
-
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
                         const m = moment(row.when).subtract(filter.tzOffset, 'minute');
