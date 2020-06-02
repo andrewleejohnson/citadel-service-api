@@ -556,6 +556,8 @@ module.exports = {
                         }
                     ]).allowDiskUse(true);
 
+                    console.log(results);
+
                     // postprocess results
                     const relevantVideos =
                         Array.from(
