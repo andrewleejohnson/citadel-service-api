@@ -353,7 +353,7 @@ module.exports = {
                                 }
                             }
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     for (const row of results) {
                         const duration = row.meta.find(meta => meta.key === 'duration');
@@ -417,7 +417,7 @@ module.exports = {
                                 }
                             }
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
@@ -449,7 +449,7 @@ module.exports = {
                         {
                             $match: query
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     for (const row of results) {
                         const dataRow = {
@@ -549,7 +549,7 @@ module.exports = {
                                 _id: 1
                             }
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     // postprocess results
                     const relevantVideos =
@@ -645,7 +645,7 @@ module.exports = {
                                 _id: 1
                             }
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     // postprocess results
                     const relevantScreens =
@@ -677,7 +677,7 @@ module.exports = {
                         {
                             $match: query
                         }
-                    ]);
+                    ], { allowDiskUse: true });
 
                     keys = ["Screen ID", "Screen Name", "Last Played"];
 
