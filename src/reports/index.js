@@ -315,7 +315,7 @@ module.exports = {
             let results;
 
             logger.debug(`Processing aggregate batch for ${filter.type.value}...`);
-            logger.verbose(`Executing with query match (${JSON.stringify(query)})`);
+            logger.verbose(`Executing with query match ${JSON.stringify(query)}`);
 
             switch (filter.type.value) {
                 case "videos":
@@ -418,6 +418,8 @@ module.exports = {
                             }
                         }
                     ]);
+
+                    console.log(results);
 
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
