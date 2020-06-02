@@ -416,6 +416,11 @@ module.exports = {
                                     searchToken: "$screen.searchToken"
                                 }
                             }
+                        },
+                        {
+                            $sort: {
+                                when: 1
+                            }
                         }
                     ]).allowDiskUse(true);
 
