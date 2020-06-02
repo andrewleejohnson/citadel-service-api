@@ -419,7 +419,7 @@ module.exports = {
                         },
                         {
                             $sort: {
-                                when: 1
+                                when: -1
                             }
                         }
                     ]).allowDiskUse(true);
