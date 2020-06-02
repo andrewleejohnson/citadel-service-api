@@ -429,7 +429,7 @@ module.exports = {
                         const m = moment(row.when).subtract(filter.tzOffset, 'minute');
 
                         let entry = {
-                            ["Last Played"]: m.format('l hh:mm A'),
+                            ["Played"]: m.format('l hh:mm A'),
                             ["Video Name"]: row.file.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: row.screen.name,
