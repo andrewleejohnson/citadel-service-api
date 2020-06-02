@@ -420,6 +420,7 @@ module.exports = {
                     ]);
 
                     console.log(results);
+                    console.log(await Statistic.countDocuments());
 
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
