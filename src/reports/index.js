@@ -159,10 +159,10 @@ module.exports = {
                         yWritingIndex -= (contentTextHeight + smallPadding);
                     }
 
-                    writeProperty('Report generated', new Date().toLocaleString());
+                    writeProperty('Report generated', new Date().toLocaleString(filter.tzLocale));
 
                     if (filter.startTime && filter.endTime) {
-                        writeProperty('Report results range', `${filter.startTime.toLocaleDateString()} - ${filter.endTime.toLocaleDateString()}`);
+                        writeProperty('Report results range', `${filter.startTime.toLocaleDateString(filter.tzLocale)} - ${filter.endTime.toLocaleDateString(filter.tzLocale)}`);
                     }
 
                     writeProperty('Report type', filter.type.value);
@@ -171,6 +171,7 @@ module.exports = {
                         writeProperty('Report filtered by', `${filter.primaryResource.name} [${filter.primaryFilterType.value}]`);
                     }
 
+                    writeProperty('Report timezone', filter.tzName);
                     writeProperty('User', user.email);
                     writeProperty('Records exported', `${data.length} records`);
 
@@ -265,6 +266,7 @@ module.exports = {
     generateReport: async ({ user, filter, exportConfig, uploadKey }) => {
         return new Promise(async (resolve, reject) => {
             const timezoneOffset = filter.tzOffset;
+            const timezoneLocale = filter.tzLocale;
             filter.startTime = new Date(new Date(filter.startTime).valueOf() + (timezoneOffset * 1000 * 60));
             filter.startTime.setHours(0, 0, 0, 0);
             filter.endTime = new Date(new Date(filter.endTime).valueOf() + (timezoneOffset * 1000 * 60));
@@ -462,10 +464,9 @@ module.exports = {
 
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
-                        const m = moment(row.when).subtract(filter.tzOffset, 'minute');
 
                         let entry = {
-                            ["Played"]: m.format('l hh:mm A'),
+                            ["Played"]: new Date(row.when).toLocaleString(timezoneLocale),
                             ["Video Name"]: row.file.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: row.screen.name,
