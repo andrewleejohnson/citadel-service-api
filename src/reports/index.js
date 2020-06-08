@@ -433,7 +433,6 @@ module.exports = {
                             ["Video Name"]: row.file.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: row.screen.name,
-                            ["Screen Model"]: row.screen.deviceModel,
                             ["Screen IP"]: row.screen.ip,
                             ["File Size (bytes)"]: row.file.size
                         };
@@ -501,29 +500,6 @@ module.exports = {
                                     }
                                 },
                                 file: 1.0,
-                                screen: 1.0
-                            }
-                        },
-                        {
-                            $lookup: {
-                                from: "screens",
-                                localField: "screen",
-                                foreignField: "_id",
-                                as: "screen"
-                            }
-                        },
-                        {
-                            $lookup: {
-                                from: "files",
-                                localField: "file",
-                                foreignField: "_id",
-                                as: "file"
-                            }
-                        },
-                        {
-                            $unwind: {
-                                path: "$screen",
-                                preserveNullAndEmptyArrays: false
                             }
                         },
                         {
@@ -536,17 +512,19 @@ module.exports = {
                             $group: {
                                 _id: "$timestamp",
                                 plays: {
-                                    $push: {
-                                        _id: "$file._id",
-                                        name: "$file.name"
-                                    }
+                                    $push: "$file"
                                 },
                                 distinct: {
-                                    $addToSet: {
-                                        _id: "$file._id",
-                                        name: "$file.name"
-                                    }
+                                    $addToSet: "$file"
                                 }
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "files",
+                                localField: "distinct",
+                                foreignField: "_id",
+                                as: "distinct"
                             }
                         },
                         {
@@ -572,7 +550,7 @@ module.exports = {
                         const dataRow = [video.name];
 
                         for (const row of results) {
-                            let playCount = row.plays.filter(play => play._id.toString() === video._id.toString()).length;
+                            let playCount = row.plays.filter(play => play.toString() === video._id.toString()).length;
                             dataRow.push(playCount);
                         }
 
@@ -596,24 +574,7 @@ module.exports = {
                                         date: "$when"
                                     }
                                 },
-                                file: 1.0,
                                 screen: 1.0
-                            }
-                        },
-                        {
-                            $lookup: {
-                                from: "screens",
-                                localField: "screen",
-                                foreignField: "_id",
-                                as: "screen"
-                            }
-                        },
-                        {
-                            $lookup: {
-                                from: "files",
-                                localField: "file",
-                                foreignField: "_id",
-                                as: "file"
                             }
                         },
                         {
@@ -623,26 +584,22 @@ module.exports = {
                             }
                         },
                         {
-                            $unwind: {
-                                path: "$file",
-                                preserveNullAndEmptyArrays: false
-                            }
-                        },
-                        {
                             $group: {
                                 _id: "$timestamp",
                                 plays: {
-                                    $push: {
-                                        _id: "$screen._id",
-                                        name: "$screen.name"
-                                    }
+                                    $push: "$screen"
                                 },
                                 distinct: {
-                                    $addToSet: {
-                                        _id: "$screen._id",
-                                        name: "$screen.name"
-                                    }
+                                    $addToSet: "$screen"
                                 }
+                            }
+                        },
+                        {
+                            $lookup: {
+                                from: "screens",
+                                localField: "distinct",
+                                foreignField: "_id",
+                                as: "distinct"
                             }
                         },
                         {
@@ -668,7 +625,7 @@ module.exports = {
                         const dataRow = [screen.name];
 
                         for (const row of results) {
-                            let playCount = row.plays.filter(play => play._id.toString() === screen._id.toString()).length;
+                            let playCount = row.plays.filter(play => play.toString() === screen._id.toString()).length;
                             dataRow.push(playCount);
                         }
 
