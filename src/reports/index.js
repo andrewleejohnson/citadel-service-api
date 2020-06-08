@@ -1,11 +1,9 @@
 import xlsx from 'xlsx';
-import NodeCache from 'node-cache';
 import csvStringify from 'csv-stringify/lib/sync';
 import * as pdfLib from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 import mongoose from 'mongoose';
-import co from 'co';
 import * as pdfLibDist from 'pdf-lib/dist/pdf-lib';
 import moment from 'moment';
 
@@ -13,10 +11,59 @@ import logger from '../logger';
 import aws from '../aws';
 import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
-import File from '../database/models/file';
-import { createResourceMutex } from '../util/mutex';
 
 module.exports = {
+    generateTagLookupQuery: (collection, resource, tag) => {
+        return [
+            {
+                $lookup: {
+                    from: collection,
+                    let: { [resource]: `$${resource}` },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $in: [mongoose.Types.ObjectId(tag), "$tags"] },
+                                        { $eq: [`$$${resource}`, "$_id"] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: `${collection}_tags`
+                }
+            },
+            {
+                $unwind: {
+                    path: `$${collection}_tags`,
+                    preserveNullAndEmptyArrays: true
+                }
+            }
+        ];
+    },
+
+    generateFullTagLookupQuery: (tag, resourcesToCheck) => {
+        if (!tag) {
+            return [];
+        }
+
+        const queryChain = [];
+        for (let resource of resourcesToCheck) {
+            queryChain.push(...module.exports.generateTagLookupQuery(`${resource}s`, resource, tag));
+        }
+
+        queryChain.push({
+            $match: {
+                $or: resourcesToCheck.map(resource => {
+                    return { [`${resource}s_tags`]: { $exists: true } }
+                })
+            }
+        });
+
+        return queryChain;
+    },
+
     bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
         logger.debug(`Completed post processing of batch with ${data.length} keys`);
 
@@ -224,8 +271,9 @@ module.exports = {
             filter.endTime.setHours(23, 59, 59);
 
             let query;
-            let stream;
             let keys;
+            let primaryTag;
+            let secondaryTag;
 
             switch (filter.type.value) {
                 case "videos":
@@ -250,14 +298,7 @@ module.exports = {
                             query['channel'] = mongoose.Types.ObjectId(filter.primaryResource._id);
                             break;
                         case "tag":
-                            /*
-                            switch (filter.type.value) {
-                                case "videos":
-                                case "plays":
-                                    query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
-                                    break;
-                            }
-                            */
+                            primaryTag = mongoose.Types.ObjectId(filter.primaryResource._id);
                             break;
                         case "screen":
                             // bypass
@@ -277,14 +318,7 @@ module.exports = {
                                 query['channel'] = mongoose.Types.ObjectId(filter.secondaryResource._id);
                                 break;
                             case "tag":
-                                /*
-                                switch (filter.type.value) {
-                                    case "videos":
-                                    case "plays":
-                                        query['assets'] = { $elemMatch: { id: mongoose.Types.ObjectId(filter.primaryResource._id) } }
-                                        break;
-                                }
-                                */
+                                secondaryTag = mongoose.Types.ObjectId(filter.secondaryResource._id);
                                 break;
                             case "screen":
                                 // bypass
@@ -323,6 +357,7 @@ module.exports = {
                         {
                             $match: query
                         },
+                        ...module.exports.generateFullTagLookupQuery(primaryTag, ['file', 'playlist', 'channel', 'screen']),
                         {
                             $lookup: {
                                 from: "files",
@@ -374,6 +409,7 @@ module.exports = {
                         {
                             $match: query
                         },
+                        ...module.exports.generateFullTagLookupQuery(primaryTag, ['file', 'playlist', 'channel', 'screen']),
                         {
                             $lookup: {
                                 from: "files",
@@ -491,6 +527,8 @@ module.exports = {
                         {
                             $match: query
                         },
+                        ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                        ...module.exports.generateFullTagLookupQuery(secondaryTag, ['file']),
                         {
                             $project: {
                                 timestamp: {
@@ -566,6 +604,8 @@ module.exports = {
                         {
                             $match: query
                         },
+                        ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                        ...module.exports.generateFullTagLookupQuery(secondaryTag, ['file']),
                         {
                             $project: {
                                 timestamp: {
