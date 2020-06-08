@@ -264,7 +264,7 @@ module.exports = {
 
     generateReport: async ({ user, filter, exportConfig, uploadKey }) => {
         return new Promise(async (resolve, reject) => {
-            const timezoneOffset = new Date().getTimezoneOffset();
+            const timezoneOffset = filter.tzOffset;
             filter.startTime = new Date(new Date(filter.startTime).valueOf() + (timezoneOffset * 1000 * 60));
             filter.startTime.setHours(0, 0, 0, 0);
             filter.endTime = new Date(new Date(filter.endTime).valueOf() + (timezoneOffset * 1000 * 60));
