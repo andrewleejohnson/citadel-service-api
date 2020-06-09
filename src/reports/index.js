@@ -159,7 +159,7 @@ module.exports = {
                         yWritingIndex -= (contentTextHeight + smallPadding);
                     }
 
-                    writeProperty('Report generated', new Date().toLocaleString(filter.tzLocale, { timeZone: file.tzName }));
+                    writeProperty('Report generated', new Date().toLocaleString(filter.tzLocale, { timeZone: filter.tzName }));
 
                     if (filter.startTime && filter.endTime) {
                         writeProperty('Report results range', `${filter.startTime.toLocaleDateString(filter.tzLocale)} - ${filter.endTime.toLocaleDateString(filter.tzLocale)}`);
