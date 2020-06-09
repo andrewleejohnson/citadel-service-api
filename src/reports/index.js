@@ -536,7 +536,8 @@ module.exports = {
                                 timestamp: {
                                     $dateToString: {
                                         format: "%m/%d/%Y",
-                                        date: "$when"
+                                        date: "$when",
+                                        timezone: timezoneName
                                     }
                                 },
                                 file: 1.0,
@@ -613,7 +614,8 @@ module.exports = {
                                 timestamp: {
                                     $dateToString: {
                                         format: "%m/%d/%Y",
-                                        date: "$when"
+                                        date: "$when",
+                                        timezone: timezoneName
                                     }
                                 },
                                 screen: 1.0
