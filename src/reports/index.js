@@ -465,6 +465,8 @@ module.exports = {
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
 
+                        console.log(new Date(row.when));
+                        console.log(timezoneLocale);
                         let entry = {
                             ["Played"]: new Date(row.when).toLocaleString(timezoneLocale),
                             ["Video Name"]: row.file.name,
