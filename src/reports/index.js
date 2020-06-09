@@ -159,7 +159,7 @@ module.exports = {
                         yWritingIndex -= (contentTextHeight + smallPadding);
                     }
 
-                    writeProperty('Report generated', new Date().toLocaleString(filter.tzLocale, { timeZoneName: file.tzName }));
+                    writeProperty('Report generated', new Date().toLocaleString(filter.tzLocale, { timeZone: file.tzName }));
 
                     if (filter.startTime && filter.endTime) {
                         writeProperty('Report results range', `${filter.startTime.toLocaleDateString(filter.tzLocale)} - ${filter.endTime.toLocaleDateString(filter.tzLocale)}`);
@@ -467,7 +467,7 @@ module.exports = {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
 
                         let entry = {
-                            ["Played"]: new Date(row.when).toLocaleString(timezoneLocale, { timeZoneName: timezoneName }),
+                            ["Played"]: new Date(row.when).toLocaleString(timezoneLocale, { timeZone: timezoneName }),
                             ["Video Name"]: row.file.name,
                             ["Duration (seconds)"]: Math.round(duration.value),
                             ["Screen Name"]: row.screen.name,
