@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 
+import { version } from '../../package.json';
 import reports from '../reports';
 
 export default ({ config, db }) => {
@@ -8,6 +9,10 @@ export default ({ config, db }) => {
 
     router.get('/status', async (req, res) => {
         res.send('OK');
+    });
+
+    router.get('/meta', async (req, res) => {
+        res.json({ version: version });
     });
 
     router.post('/report', async (req, res) => {
