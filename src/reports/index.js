@@ -504,7 +504,7 @@ module.exports = {
                         };
 
                         if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
-                            dataRow["Screen ID"] = screen.searchToken;
+                            dataRow["Screen ID"] = row.searchToken;
                             dataRow["Last Played"] = '';
                             if (row.issues && row.issues.length > 0) {
                                 let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
