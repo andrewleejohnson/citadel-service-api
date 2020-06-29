@@ -666,7 +666,7 @@ module.exports = {
                     }
 
                     for (const screen of relevantScreens) {
-                        const dataRow = [screen.name];
+                        const dataRow = [`${screen.name} (${screen.searchToken})`];
 
                         for (const row of results) {
                             let playCount = row.plays.filter(play => play.toString() === screen._id.toString()).length;
