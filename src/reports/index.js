@@ -601,7 +601,7 @@ module.exports = {
                     resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
                     break;
                 case "playsscreentime":
-                    keys = ['Screen Name'];
+                    keys = ['Screen Name', 'Screen ID'];
 
                     results = await Statistic.aggregate([
                         {
@@ -666,7 +666,7 @@ module.exports = {
                     }
 
                     for (const screen of relevantScreens) {
-                        const dataRow = [`${screen.name} (${screen.searchToken})`];
+                        const dataRow = [screen.name, screen.searchToken];
 
                         for (const row of results) {
                             let playCount = row.plays.filter(play => play.toString() === screen._id.toString()).length;
