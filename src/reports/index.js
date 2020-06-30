@@ -399,7 +399,7 @@ module.exports = {
                         data.push({
                             ["Video Name"]: row.name,
                             ["File Size (bytes)"]: row.size,
-                            ["Duration (seconds)"]: Math.round(duration.value),
+                            ["Duration (seconds)"]: duration ? Math.round(duration.value) : 0,
                             ["Plays"]: Math.floor(row.count)
                         });
                     }
@@ -469,7 +469,7 @@ module.exports = {
                         let entry = {
                             ["Played"]: new Date(row.when).toLocaleString(timezoneLocale, { timeZone: timezoneName }),
                             ["Video Name"]: row.file.name,
-                            ["Duration (seconds)"]: Math.round(duration.value),
+                            ["Duration (seconds)"]: duration ? Math.round(duration.value) : 0,
                             ["Screen Name"]: row.screen.name,
                             ["Screen IP"]: row.screen.ip,
                             ["File Size (bytes)"]: row.file.size
