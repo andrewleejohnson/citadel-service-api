@@ -706,6 +706,9 @@ module.exports = {
                     }
 
                     break;
+                default:
+                    reject("Invalid report type");
+                    break;
             }
 
             try {
