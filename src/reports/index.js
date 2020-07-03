@@ -12,6 +12,8 @@ import aws from '../aws';
 import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
 
+const ERRORS = {};
+
 module.exports = {
     generateTagLookupQuery: (collection, resource, tag) => {
         return [
@@ -64,8 +66,12 @@ module.exports = {
         return queryChain;
     },
 
-    bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey }) => {
+    bundleReport: async ({ user, exportConfig, filter, keys, data, uploadKey, url }) => {
         logger.debug(`Completed post processing of batch with ${data.length} keys`);
+
+        if (data.length > 2048 && exportConfig.format.value === 'pdf') {
+            throw new Error("Data too long to be output in PDF format, please use a different export format");
+        }
 
         return new Promise(async (resolve, reject) => {
             let output;
@@ -263,7 +269,7 @@ module.exports = {
         });
     },
 
-    generateReport: async ({ user, filter, exportConfig, uploadKey }) => {
+    generateReport: async ({ user, filter, exportConfig, uploadKey, url }) => {
         return new Promise(async (resolve, reject) => {
             const timezoneOffset = filter.tzOffset;
             const timezoneLocale = filter.tzLocale;
@@ -405,7 +411,7 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url }));
                     break;
                 case "plays":
                     results = await Statistic.aggregate([
@@ -484,7 +490,7 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "screens":
                     results = await Screen.aggregate([
@@ -520,7 +526,7 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "playsvideotime":
                     keys = ['Video Name'];
@@ -598,7 +604,7 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "playsscreentime":
                     keys = ['Screen Name', 'Screen ID'];
@@ -676,7 +682,7 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }));
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "screenissues":
                     results = await Screen.aggregate([
@@ -703,7 +709,7 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey }))
+                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }))
                     break;
             }
         });
