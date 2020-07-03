@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import atob from 'atob';
 
 import { version } from '../../package.json';
 import reports from '../reports';

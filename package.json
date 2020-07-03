@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "atob": "^2.1.2",
     "aws-sdk": "^2.585.0",
     "body-parser": "^1.19.0",
     "co": "^4.6.0",
