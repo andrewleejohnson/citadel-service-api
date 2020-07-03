@@ -411,7 +411,6 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url }));
                     break;
                 case "plays":
                     results = await Statistic.aggregate([
@@ -490,7 +489,6 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "screens":
                     results = await Screen.aggregate([
@@ -526,7 +524,6 @@ module.exports = {
                     }
 
                     keys = data[0] ? Object.keys(data[0]) : [];
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "playsvideotime":
                     keys = ['Video Name'];
@@ -682,7 +679,6 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "screenissues":
                     results = await Screen.aggregate([
@@ -709,8 +705,14 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }))
                     break;
+            }
+
+            try {
+                let report = await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url });
+                resolve(report);
+            } catch (e) {
+                reject(e.toString());
             }
         });
     }
