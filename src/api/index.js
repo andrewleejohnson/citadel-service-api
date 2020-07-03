@@ -5,7 +5,8 @@ import atob from 'atob';
 import { version } from '../../package.json';
 import reports from '../reports';
 
-const REPORT_ERRORS = [];
+const REPORT_ERRORS = {};
+const REPORT_STATUS = {};
 
 export default ({ config, db }) => {
     let router = Router();
@@ -23,9 +24,13 @@ export default ({ config, db }) => {
 
         let decodedUrl = atob(url);
 
-        if (REPORT_ERRORS[decodedUrl]) {
+        if (!REPORT_STATUS[decodedUrl]) {
+            res.json({ status: 'error', error: 'Reporting server overloaded - please try running a more specific report or contact support' });
+        }
+        else if (REPORT_ERRORS[decodedUrl]) {
             res.json({ status: 'error', error: REPORT_ERRORS[decodedUrl] });
-        } else {
+        }
+        else {
             res.json({ status: 'ok' });
         }
     });
@@ -37,12 +42,16 @@ export default ({ config, db }) => {
         let key = `Citadel Report (${randomKey}) - ${new Date().toLocaleDateString().replace(/\//g, '-')}.${exportConfig.format.value}`;
         let url = `${config.aws.cloudfront.root}${key}`;
 
+        REPORT_STATUS[url] = 'running';
+
         reports.generateReport({
             user: user,
             filter: filter,
             exportConfig: exportConfig,
             uploadKey: key,
             url: url
+        }).then(() => {
+            REPORT_STATUS[url] = 'complete';
         }).catch(err => {
             REPORT_ERRORS[url] = err.toString();
         });
