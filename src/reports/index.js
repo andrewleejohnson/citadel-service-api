@@ -601,7 +601,6 @@ module.exports = {
                         data.push(dataRow);
                     }
 
-                    resolve(await module.exports.bundleReport({ user, exportConfig, filter, keys, data, uploadKey, url }));
                     break;
                 case "playsscreentime":
                     keys = ['Screen Name', 'Screen ID'];
