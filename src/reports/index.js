@@ -354,6 +354,10 @@ module.exports = {
                     break;
             }
 
+            let aggregationConfig = {
+                maxTimeMS: 30000
+            };
+
             const data = [];
             let results;
 
@@ -397,7 +401,7 @@ module.exports = {
                                 }
                             }
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     for (const row of results) {
                         const duration = row.meta.find(meta => meta.key === 'duration');
@@ -466,7 +470,7 @@ module.exports = {
                                 when: -1
                             }
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     for (const row of results) {
                         const duration = row.file.meta.find(meta => meta.key === 'duration');
@@ -495,7 +499,7 @@ module.exports = {
                         {
                             $match: query
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     for (const row of results) {
                         const dataRow = {
@@ -576,7 +580,7 @@ module.exports = {
                                 _id: 1
                             }
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     // postprocess results
                     const relevantVideos =
@@ -653,7 +657,7 @@ module.exports = {
                                 _id: 1
                             }
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     // postprocess results
                     const relevantScreens =
@@ -684,7 +688,7 @@ module.exports = {
                         {
                             $match: query
                         }
-                    ]).allowDiskUse(true);
+                    ], aggregationConfig).allowDiskUse(true);
 
                     keys = ["Screen ID", "Screen Name", "Last Played"];
 
