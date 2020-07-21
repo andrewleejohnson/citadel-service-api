@@ -24,6 +24,8 @@ export default ({ config, db }) => {
 
         let decodedUrl = atob(url);
 
+        console.log("Checking URL " + decodedUrl);
+
         if (!REPORT_STATUS[decodedUrl]) {
             res.json({ status: 'error', error: 'Reporting server overloaded - please try running a more specific report or contact support' });
         }
@@ -53,6 +55,7 @@ export default ({ config, db }) => {
         }).then(() => {
             REPORT_STATUS[url] = 'complete';
         }).catch(err => {
+            console.log('Caught error for ' + url);
             REPORT_ERRORS[url] = err.toString();
         });
 
