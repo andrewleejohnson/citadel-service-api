@@ -356,7 +356,7 @@ module.exports = {
                 }
 
                 let aggregationConfig = {
-                    maxTimeMS: 90000
+                    maxTimeMS: 180000
                 };
 
                 const data = [];
