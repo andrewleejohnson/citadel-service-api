@@ -8,7 +8,7 @@ import * as pdfLibDist from 'pdf-lib/dist/pdf-lib';
 import moment from 'moment';
 
 import logger from '../logger';
-import aws from '../aws';
+import aws from '../static/aws';
 import Screen from '../database/models/screen';
 import Statistic from '../database/models/statistic';
 
@@ -356,7 +356,7 @@ module.exports = {
                 }
 
                 let aggregationConfig = {
-                    maxTimeMS: 30000
+                    maxTimeMS: 90000
                 };
 
                 const data = [];
