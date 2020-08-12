@@ -508,7 +508,7 @@ module.exports = {
                                 ["Status"]: row.status,
                                 ["Device Model"]: row.deviceModel,
                                 ["Version"]: row.version,
-                                ["Location"]: (row.location && row.location.valid) ? row.location.history[row.location.history.length - 1].summary : null,
+                                ["Location"]: (row.location && row.location.valid && row.location.history && row.location.history.length > 0) ? row.location.history[row.location.history.length - 1].summary : null,
                                 ["PIN"]: row.pin,
                             };
 
