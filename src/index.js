@@ -9,12 +9,12 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 
 import logger from "./logger";
-import { getConnectionToDatabase } from './database';
+import { getRootConnectionToDatabase } from './database';
 import api from "./api";
 
 import config from './config';
 
-getConnectionToDatabase(db => {
+getRootConnectionToDatabase(db => {
     let app = express();
     app.server = http.createServer(app);
     app.use(cors({ exposedHeaders: config.corsHeaders }));

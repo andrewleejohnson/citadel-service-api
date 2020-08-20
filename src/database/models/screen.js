@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const ScreenSchema = new mongoose.Schema({
     name: String,
@@ -18,6 +18,15 @@ const ScreenSchema = new mongoose.Schema({
         type: { type: String },
         value: mongoose.Schema.Types.Mixed
     }],
+    issues: [{
+        when: Date,
+        message: String,
+        type: {
+            type: String,
+            enum: ['notplaying']
+        }
+    }],
+    screenIssueClearDate: Date,
     location: {
         history: [{
             when: Date,
@@ -28,21 +37,22 @@ const ScreenSchema = new mongoose.Schema({
         valid: Boolean,
         lastUpdate: Date
     },
+    version: String,
     notes: String,
     status: {
         type: String,
-        enum: ['pending', 'offline', 'online', 'n/a']
+        enum: ['pending', 'offline', 'online','paused', 'n/a']
     },
     type: {
         type: String,
-        enum: ['user', 'showcase']
+        enum: ['user', 'system']
     },
-    version: String,
+    lastCacheTime: Number,
     channels: [{ type: mongoose.Schema.Types.ObjectId, ref: 'channel' }],
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'user' },
     tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'tag' }],
     usersWithAccess: [{ type: mongoose.Schema.Types.ObjectId, ref: 'user' }],
-    deleted: Date
+    deleted: Date,
 });
 
-module.exports = mongoose.model("screen", ScreenSchema);
+export default (connection) => connection.model("screen", ScreenSchema);

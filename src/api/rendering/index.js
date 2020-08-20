@@ -1,9 +1,7 @@
 import { Router } from 'express';
 import atob from 'atob';
-import sharp from 'sharp';
 
 import rendering from '../../rendering';
-import { version } from '../../../package.json';
 
 export default ({ config, db }) => {
     let router = Router();

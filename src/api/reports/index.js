@@ -33,7 +33,7 @@ export default ({ config, db }) => {
     });
 
     router.post('/', async (req, res) => {
-        let { user, filter, exportConfig } = req.body;
+        let { user, filter, databaseContext, exportConfig } = req.body;
 
         let randomKey = crypto.randomBytes(4).toString('hex');
         let key = `Citadel Report (${randomKey}) - ${new Date().toLocaleDateString().replace(/\//g, '-')}.${exportConfig.format.value}`;
@@ -43,6 +43,7 @@ export default ({ config, db }) => {
 
         reports.generateReport({
             user: user,
+            databaseContext: databaseContext,
             filter: filter,
             exportConfig: exportConfig,
             uploadKey: key,

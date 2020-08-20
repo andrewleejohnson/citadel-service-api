@@ -11,4 +11,4 @@ const StatisticSchema = new mongoose.Schema({
     channel: { type: mongoose.Schema.Types.ObjectId, ref: 'channel', index: true }
 });
 
-export default mongoose.model("statistic", StatisticSchema);
+export default (connection) => connection.model("statistic", StatisticSchema);

@@ -9,8 +9,7 @@ import moment from 'moment';
 
 import logger from '../logger';
 import aws from '../static/aws';
-import Screen from '../database/models/screen';
-import Statistic from '../database/models/statistic';
+import { Screen, Statistic } from '../database/models';
 
 const ERRORS = {};
 
@@ -269,7 +268,7 @@ module.exports = {
         });
     },
 
-    generateReport: async ({ user, filter, exportConfig, uploadKey, url }) => {
+    generateReport: async ({ user, databaseContext, filter, exportConfig, uploadKey, url }) => {
         return new Promise(async (resolve, reject) => {
             try {
                 const timezoneOffset = filter.tzOffset;
@@ -367,7 +366,7 @@ module.exports = {
 
                 switch (filter.type.value) {
                     case "videos":
-                        results = await Statistic.aggregate([
+                        results = await Statistic(databaseContext).aggregate([
                             {
                                 $match: query
                             },
@@ -418,7 +417,7 @@ module.exports = {
                         keys = data[0] ? Object.keys(data[0]) : [];
                         break;
                     case "plays":
-                        results = await Statistic.aggregate([
+                        results = await Statistic(databaseContext).aggregate([
                             {
                                 $match: query
                             },
@@ -496,7 +495,7 @@ module.exports = {
                         keys = data[0] ? Object.keys(data[0]) : [];
                         break;
                     case "screens":
-                        results = await Screen.aggregate([
+                        results = await Screen(databaseContext).aggregate([
                             {
                                 $match: query
                             }
@@ -534,7 +533,7 @@ module.exports = {
                     case "playsvideotime":
                         keys = ['Video Name'];
 
-                        results = await Statistic.aggregate([
+                        results = await Statistic(databaseContext).aggregate([
                             {
                                 $match: query
                             },
@@ -611,7 +610,7 @@ module.exports = {
                     case "playsscreentime":
                         keys = ['Screen Name', 'Screen ID'];
 
-                        results = await Statistic.aggregate([
+                        results = await Statistic(databaseContext).aggregate([
                             {
                                 $match: query
                             },
@@ -686,7 +685,7 @@ module.exports = {
 
                         break;
                     case "screenissues":
-                        results = await Screen.aggregate([
+                        results = await Screen(databaseContext).aggregate([
                             {
                                 $match: {
                                     ...query,

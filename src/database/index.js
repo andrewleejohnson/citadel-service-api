@@ -2,10 +2,38 @@ import mongoose from "mongoose";
 import fs from "fs";
 import tunnel from "tunnel-ssh";
 
+import * as Models from "./models";
+
 import logger from "../logger";
 import config from "../config.json";
 
+let PRIMARY_CONNECTION;
+
+let DATABASE_POOL = {};
+
 module.exports = {
+    getSubConnectionToDatabase: (context) => {
+        if (!PRIMARY_CONNECTION || !context) {
+            return null;
+        }
+        if (!DATABASE_POOL[context]) {
+            logger.info(`Initializing new context for database "${context}"...`);
+
+            // open new connection on this instance and set up the scripts and cron
+            // due to the initialization of the scripts and cron, initial requests may take a bit longer
+            DATABASE_POOL[context] = PRIMARY_CONNECTION.useDb(context);
+
+            const exportedModels = Object.keys(Models);
+            for (let model of exportedModels) {
+                logger.debug(`Registering "${model}" for database "${context}"...`);
+                Models[model](context);
+            }
+
+            // register all of our models
+        }
+        return DATABASE_POOL[context];
+    },
+
     executeConnection: async (mongoDB, callback) => {
         let dbConnection;
         let connected = false;
@@ -26,6 +54,7 @@ module.exports = {
                 await mongoose.connect(mongoDB, connectionConfig);
                 mongoose.Promise = global.Promise;
                 dbConnection = mongoose.connection;
+                PRIMARY_CONNECTION = dbConnection;
 
                 connected = true;
             } catch (e) {
@@ -39,7 +68,7 @@ module.exports = {
         callback(dbConnection);
     },
 
-    getConnectionToDatabase: async (callback) => {
+    getRootConnectionToDatabase: async (callback) => {
         let queryParamString = `${Object.keys(config.database.params).map(key => `${key}=${config.database.params[key]}`).join('&')}`;
 
         logger.debug(`Attempting to connect to database (${config.database.username}@${config.database.host}:${config.database.port}/${config.database.table})...`);
