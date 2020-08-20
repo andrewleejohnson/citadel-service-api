@@ -514,13 +514,13 @@ module.exports = {
 
                             if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                                 dataRow["Screen ID"] = row.searchToken;
-                                dataRow["Last Played"] = '';
+                                dataRow["Last Played"] = null;
 
-                                if (row.issues && row.issues.length > 0) {
+                                if (row.issues && row.issues.length > 0 && row.lastPing) {
                                     let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
 
                                     if (notPlayingIssue) {
-                                        const numberDays = Math.round((new Date() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
+                                        const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
                                         dataRow["Last Played"] = `${numberDays} days ago`;
                                     }
                                 }
@@ -695,20 +695,22 @@ module.exports = {
                             }
                         ]).option(aggregationConfig).allowDiskUse(true);
 
-                        keys = ["Screen ID", "Screen Name", "Status", "Last Played"];
+                        keys = ["Screen ID", "Screen Name", "Status", "PIN", "Last Played"];
 
                         for (const row of results) {
                             const dataRow = {
                                 "Screen ID": row.searchToken,
                                 "Screen Name": row.name,
                                 "Status": row.status,
+                                "PIN": row.pin,
                                 "Last Played": null
                             }
 
-                            if (row.issues && row.issues.length) {
+                            if (row.issues && row.issues.length > 0 && row.lastPing) {
                                 const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
+                                console.log(notPlayingIssue);
                                 if (notPlayingIssue) {
-                                    const numberDays = Math.round((new Date() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
+                                    const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
                                     dataRow["Last Played"] = `${numberDays} days ago`;
 
                                     data.push(dataRow);
