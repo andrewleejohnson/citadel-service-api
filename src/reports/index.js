@@ -520,7 +520,7 @@ module.exports = {
                                     let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
 
                                     if (notPlayingIssue) {
-                                        const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
+                                        const numberDays = Math.round((new Date() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
                                         dataRow["Last Played"] = `${numberDays} days ago`;
                                     }
                                 }
@@ -708,7 +708,7 @@ module.exports = {
                             if (row.issues && row.issues.length) {
                                 const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
                                 if (notPlayingIssue) {
-                                    const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
+                                    const numberDays = Math.round((new Date() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
                                     dataRow["Last Played"] = `${numberDays} days ago`;
 
                                     data.push(dataRow);
