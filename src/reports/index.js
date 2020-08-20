@@ -687,26 +687,32 @@ module.exports = {
                     case "screenissues":
                         results = await Screen.aggregate([
                             {
-                                $match: query
+                                $match: {
+                                    ...query,
+                                    issues: { $exists: true, $ne: [] }
+                                }
                             }
                         ]).option(aggregationConfig).allowDiskUse(true);
 
-                        keys = ["Screen ID", "Screen Name", "Last Played"];
+                        keys = ["Screen ID", "Screen Name", "Status", "Last Played"];
 
                         for (const row of results) {
                             const dataRow = {
                                 "Screen ID": row.searchToken,
                                 "Screen Name": row.name,
-                                "Last Played": null
+                                "Status": row.status,
+                                "Days since last played": null
                             }
+
                             if (row.issues && row.issues.length) {
                                 const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
                                 if (notPlayingIssue) {
-                                    const m = moment(notPlayingIssue.when).subtract(filter.tzOffset, 'minute');
-                                    dataRow['Last Played'] = m.format('l hh:mm A');
+                                    const daysAgo = Math.round(new Date() - notPlayingIssue.when) / (1000 * 1000 * 60 * 24);
+                                    dataRow['Days since last played'] = daysAgo;
+
+                                    data.push(dataRow);
                                 }
                             }
-                            data.push(dataRow);
                         }
 
                         break;
@@ -722,7 +728,7 @@ module.exports = {
                     reject(e.toString());
                 }
             }
-            catch (e) { 
+            catch (e) {
                 reject(e.toString());
             }
         });
