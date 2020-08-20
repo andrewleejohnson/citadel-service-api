@@ -515,11 +515,12 @@ module.exports = {
                             if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                                 dataRow["Screen ID"] = row.searchToken;
                                 dataRow["Last Played"] = '';
+
                                 if (row.issues && row.issues.length > 0) {
                                     let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
 
                                     if (notPlayingIssue) {
-                                        const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when).valueOf()) / (1000 * 60 * 60 * 24));
+                                        const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
                                         dataRow["Last Played"] = `${numberDays} days ago`;
                                     }
                                 }
@@ -701,14 +702,14 @@ module.exports = {
                                 "Screen ID": row.searchToken,
                                 "Screen Name": row.name,
                                 "Status": row.status,
-                                "Days since last played": null
+                                "Last Played": null
                             }
 
                             if (row.issues && row.issues.length) {
                                 const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
                                 if (notPlayingIssue) {
-                                    const daysAgo = Math.round(new Date() - notPlayingIssue.when) / (1000 * 1000 * 60 * 24);
-                                    dataRow['Days since last played'] = daysAgo;
+                                    const numberDays = Math.round((Date.now() - new Date(notPlayingIssue.when)) / (1000 * 60 * 60 * 24));
+                                    dataRow["Last Played"] = `${numberDays} days ago`;
 
                                     data.push(dataRow);
                                 }
