@@ -10,6 +10,7 @@ import moment from 'moment';
 import logger from '../logger';
 import aws from '../static/aws';
 import { Screen, Statistic } from '../database/models';
+import { json } from 'body-parser';
 
 const ERRORS = {};
 
@@ -352,6 +353,29 @@ module.exports = {
                                 break;
                         }
                         break;
+                    case "dailystream":
+                        query = {
+                            when: {
+                                $gte: filter.startTime,
+                                $lte: filter.endTime
+                            }
+                        };
+
+                        switch (filter.primaryFilterType.value) {
+                            case "tag":
+                                primaryTag = mongoose.Types.ObjectId(filter.primaryResource._id);
+                                break;
+                        }
+
+                        if (filter.secondaryFilterType && filter.secondaryFilterType.value) {
+                            switch (filter.secondaryFilterType.value) {
+                                case "tag":
+                                    secondaryTag = mongoose.Types.ObjectId(filter.secondaryResource._id);
+                                    break;
+
+                            }
+                        }
+                    break;
                 }
 
                 let aggregationConfig = {
@@ -659,7 +683,6 @@ module.exports = {
                                 }
                             }
                         ]).option(aggregationConfig).allowDiskUse(true);
-
                         // postprocess results
                         const relevantScreens =
                             Array.from(
@@ -716,6 +739,89 @@ module.exports = {
                                 }
                             }
                         }
+
+                        break;
+                    case "dailystream":
+                        let screens;
+                        keys = ['Screen Name'];
+                        
+
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
+                            },
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                            {
+                                $project: {
+                                    timestamp: {
+                                        $dateToString: {
+                                            format: "%m/%d/%Y",
+                                            date: "$when",
+                                            timezone: timezoneName
+                                        }
+                                    },
+                                    file: 1.0,
+                                    screen: 1.0
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: "$screen",
+                                    preserveNullAndEmptyArrays: false
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: {timestamp:"$timestamp",screen:"$screen"},
+                                    plays: {
+                                        $push: "$file"
+                                    }
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "screens",
+                                    localField: "_id.screen",
+                                    foreignField: "_id",
+                                    as: "screen"
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "files",
+                                    localField: "plays",
+                                    foreignField: "_id",
+                                    as: "distinct"
+                                }
+                            },
+                            {
+                                $sort: {
+                                    _id: 1
+                                }
+                            }
+
+                        ]).option(aggregationConfig).allowDiskUse(false);
+                      
+                        results.forEach((item) => {
+
+                            const _id = item._id 
+                            const date = _id.timestamp
+                            keys.push(date)
+
+                            const screenName = item.screen[0]['name']
+                            // console.log(item.distinct)
+                            const plays = item.plays
+                            let dailyPlaytime = 0;
+                            plays.forEach((fileId) => {
+                                const video = item.distinct.find(video => video._id.toString() === fileId.toString())
+                                const durationMeta = video.meta.find(entry => entry.key === 'duration')
+                                let durationValue = (durationMeta) ? durationMeta.value : 0;
+                                dailyPlaytime += parseFloat(durationValue);
+                            })
+                            dailyPlaytime = Math.round(dailyPlaytime)
+
+                            data.push([screenName, dailyPlaytime])
+                          });
 
                         break;
                     default:
