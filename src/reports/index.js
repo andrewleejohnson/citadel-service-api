@@ -801,15 +801,22 @@ module.exports = {
                             }
 
                         ]).option(aggregationConfig).allowDiskUse(false);
-                      
+                        let playtime = [];
+                        let screenNames = [];
                         results.forEach((item) => {
+                            let dates = [];
 
                             const _id = item._id 
                             const date = _id.timestamp
-                            keys.push(date)
+                            if (!dates.includes(date)){
+                                dates.push(date)
+                            }
 
                             const screenName = item.screen[0]['name']
-                            // console.log(item.distinct)
+                            if (!screenNames.includes(screenName)){
+                                screenNames.push(screenName)
+                            }
+                            // console.log(item)
                             const plays = item.plays
                             let dailyPlaytime = 0;
                             plays.forEach((fileId) => {
@@ -818,10 +825,25 @@ module.exports = {
                                 let durationValue = (durationMeta) ? durationMeta.value : 0;
                                 dailyPlaytime += parseFloat(durationValue);
                             })
-                            dailyPlaytime = Math.round(dailyPlaytime)
+                            dailyPlaytime = Math.round(dailyPlaytime / 60) / 60
 
-                            data.push([screenName, dailyPlaytime])
+                            dates.sort((a,b)=>a-b);
+
+
+                            if(typeof playtime[screenName] === 'undefined'){
+                                playtime[screenName] = [];
+                            }
+                            playtime[screenName][date] = dailyPlaytime
+
                           });
+
+                          playtime.forEach((item) => {
+                            item.sort((a,b)=>a-b);
+                          });
+                          console.log(playtime)
+                        console.log('aaaaaaaaaaaaaa')
+                        // console.log(dates)
+
 
                         break;
                     default:
@@ -830,8 +852,8 @@ module.exports = {
                 }
 
                 try {
-                    let report = await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url });
-                    resolve(report);
+                    // let report = await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url });
+                    // resolve(report);
                 } catch (e) {
                     reject(e.toString());
                 }
