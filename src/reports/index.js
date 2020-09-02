@@ -746,7 +746,7 @@ module.exports = {
                         keys = ['Screen Name'];
                         let datesBetween = []
                         let currentDate = new Date (filter.startTime.valueOf() - 24*60*60*1000)
-                        while(currentDate < filter.endTime - 24*60*60*1000){
+                        while(currentDate < filter.endTime - 24*60*60*1000){ //this creates a list of dates which we can use to build our array that will be used for printing
                             currentDate = new Date (currentDate.valueOf() + 24*60*60*1000)
                             const dateString = currentDate.toLocaleDateString("en-US", {year: "numeric",month: "2-digit",day: "2-digit"});
                             console.log("current date = " +dateString)
@@ -847,10 +847,6 @@ module.exports = {
                             playtime[screenName][date.toString()] = dailyPlaytime
                           });
 
-
-                          playtime.forEach((item) => {
-                            item.sort((a,b)=>a-b);
-                          });
                           console.log(playtime)
                         break;
                     default:
