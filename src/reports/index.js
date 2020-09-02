@@ -750,7 +750,7 @@ module.exports = {
                             currentDate = new Date (currentDate.valueOf() + 24*60*60*1000)
                             const dateString = currentDate.toLocaleDateString("en-US", {year: "numeric",month: "2-digit",day: "2-digit"});
                             console.log("current date = " +dateString)
-                            datesBetween[dateString.toString()] = []
+                            datesBetween[dateString.toString()] = '0'
                         }
 
                         console.log(datesBetween)
@@ -835,7 +835,13 @@ module.exports = {
                             dailyPlaytime = Math.round(dailyPlaytime / 60) / 60
 
                             if(typeof playtime[screenName] === 'undefined'){
-                                playtime[screenName] = JSON.parse(JSON.stringify(datesBetween)); //need to deep copy
+                                let deepCopiedDates = [];
+                                for(const key in datesBetween){ //need to deep copy cant use lodash or stringify parse so we do it manually
+                                    deepCopiedDates[key] = datesBetween[key]
+                                }
+                                
+                                playtime[screenName] = deepCopiedDates; 
+                                console.log(deepCopiedDates)
                             }
 
                             playtime[screenName][date.toString()] = dailyPlaytime
