@@ -389,583 +389,463 @@ module.exports = {
                 logger.verbose(`Executing with query match ${JSON.stringify(query)}`);
 
                 switch (filter.type.value) {
-                  case "videos":
-                    results = await Statistic(databaseContext)
-                      .aggregate([
-                        {
-                          $match: query,
-                        },
-                        ...module.exports.generateFullTagLookupQuery(
-                          primaryTag,
-                          ["file", "playlist", "channel", "screen"]
-                        ),
-                        {
-                          $lookup: {
-                            from: "files",
-                            localField: "file",
-                            foreignField: "_id",
-                            as: "file",
-                          },
-                        },
-                        {
-                          $unwind: {
-                            path: "$file",
-                          },
-                        },
-                        {
-                          $group: {
-                            _id: "$file._id",
-                            count: {
-                              $sum: 1.0,
+                    case "videos":
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
                             },
-                            name: {
-                              $first: "$file.name",
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['file', 'playlist', 'channel', 'screen']),
+                            {
+                                $lookup: {
+                                    from: "files",
+                                    localField: "file",
+                                    foreignField: "_id",
+                                    as: "file"
+                                }
                             },
-                            size: {
-                              $first: "$file.size",
+                            {
+                                $unwind: {
+                                    path: "$file"
+                                }
                             },
-                            meta: {
-                              $first: "$file.meta",
-                            },
-                          },
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
+                            {
+                                $group: {
+                                    _id: "$file._id",
+                                    count: {
+                                        $sum: 1.0
+                                    },
+                                    name: {
+                                        $first: "$file.name"
+                                    },
+                                    size: {
+                                        $first: "$file.size"
+                                    },
+                                    meta: {
+                                        $first: "$file.meta"
+                                    }
+                                }
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
 
-                    for (const row of results) {
-                      const duration = row.meta.find(
-                        (meta) => meta.key === "duration"
-                      );
+                        for (const row of results) {
+                            const duration = row.meta.find(meta => meta.key === 'duration');
 
-                      data.push({
-                        ["Video Name"]: row.name,
-                        ["File Size (bytes)"]: row.size,
-                        ["Duration (seconds)"]: duration
-                          ? Math.round(duration.value)
-                          : 0,
-                        ["Plays"]: Math.floor(row.count),
-                      });
-                    }
-
-                    keys = data[0] ? Object.keys(data[0]) : [];
-                    break;
-                  case "plays":
-                    results = await Statistic(databaseContext)
-                      .aggregate([
-                        {
-                          $match: query,
-                        },
-                        ...module.exports.generateFullTagLookupQuery(
-                          primaryTag,
-                          ["file", "playlist", "channel", "screen"]
-                        ),
-                        {
-                          $lookup: {
-                            from: "files",
-                            localField: "file",
-                            foreignField: "_id",
-                            as: "file",
-                          },
-                        },
-                        {
-                          $lookup: {
-                            from: "screens",
-                            localField: "screen",
-                            foreignField: "_id",
-                            as: "screen",
-                          },
-                        },
-                        {
-                          $unwind: {
-                            path: "$file",
-                          },
-                        },
-                        {
-                          $unwind: {
-                            path: "$screen",
-                          },
-                        },
-                        {
-                          $project: {
-                            _id: "$_id",
-                            when: "$when",
-                            file: {
-                              name: "$file.name",
-                              size: "$file.size",
-                              meta: "$file.meta",
-                            },
-                            screen: {
-                              name: "$screen.name",
-                              deviceModel: "$screen.deviceModel",
-                              ip: "$screen.ip",
-                              searchToken: "$screen.searchToken",
-                            },
-                          },
-                        },
-                        {
-                          $sort: {
-                            when: -1,
-                          },
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
-
-                    for (const row of results) {
-                      const duration = row.file.meta.find(
-                        (meta) => meta.key === "duration"
-                      );
-
-                      let entry = {
-                        ["Played"]: new Date(
-                          row.when
-                        ).toLocaleString(timezoneLocale, {
-                          timeZone: timezoneName,
-                        }),
-                        ["Video Name"]: row.file.name,
-                        ["Duration (seconds)"]: duration
-                          ? Math.round(duration.value)
-                          : 0,
-                        ["Screen Name"]: row.screen.name,
-                        ["Screen IP"]: row.screen.ip,
-                        ["File Size (bytes)"]: row.file.size,
-                      };
-
-                      if (
-                        exportConfig.exportInternalIDs &&
-                        exportConfig.format.value !== "pdf"
-                      ) {
-                        entry["Statistic ID"] = row._id.toString();
-                        entry["Screen ID"] = row.screen.searchToken;
-                      }
-
-                      data.push(entry);
-                    }
-
-                    keys = data[0] ? Object.keys(data[0]) : [];
-                    break;
-                  case "screens":
-                    results = await Screen(databaseContext)
-                      .aggregate([
-                        {
-                          $match: query,
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
-
-                    for (const row of results) {
-                      const dataRow = {
-                        ["Screen Name"]: row.name,
-                        ["Status"]: row.status,
-                        ["Device Model"]: row.deviceModel,
-                        ["Version"]: row.version,
-                        ["Location"]:
-                          row.location &&
-                          row.location.valid &&
-                          row.location.history &&
-                          row.location.history.length > 0
-                            ? row.location.history[
-                                row.location.history.length - 1
-                              ].summary
-                            : null,
-                        ["PIN"]: row.pin,
-                      };
-
-                      if (
-                        exportConfig.exportInternalIDs &&
-                        exportConfig.format.value !== "pdf"
-                      ) {
-                        dataRow["Screen ID"] = row.searchToken;
-                        dataRow["Last Played"] = null;
-
-                        if (
-                          row.issues &&
-                          row.issues.length > 0 &&
-                          row.lastPing
-                        ) {
-                          let notPlayingIssue = row.issues.find(
-                            (issue) => issue.type === "notplaying"
-                          );
-
-                          if (notPlayingIssue) {
-                            const numberDays = Math.round(
-                              (new Date() - new Date(row.lastPing)) /
-                                (1000 * 60 * 60 * 24)
-                            );
-                            dataRow["Last Played"] = `${numberDays} days ago`;
-                          }
+                            data.push({
+                                ["Video Name"]: row.name,
+                                ["File Size (bytes)"]: row.size,
+                                ["Duration (seconds)"]: duration ? Math.round(duration.value) : 0,
+                                ["Plays"]: Math.floor(row.count)
+                            });
                         }
-                      }
 
-                      data.push(dataRow);
-                    }
-
-                    keys = data[0] ? Object.keys(data[0]) : [];
-                    break;
-                  case "playsvideotime":
-                    keys = ["Video Name"];
-
-                    results = await Statistic(databaseContext)
-                      .aggregate([
-                        {
-                          $match: query,
-                        },
-                        ...module.exports.generateFullTagLookupQuery(
-                          primaryTag,
-                          ["screen"]
-                        ),
-                        ...module.exports.generateFullTagLookupQuery(
-                          secondaryTag,
-                          ["file"]
-                        ),
-                        {
-                          $project: {
-                            timestamp: {
-                              $dateToString: {
-                                format: "%m/%d/%Y",
-                                date: "$when",
-                                timezone: timezoneName,
-                              },
+                        keys = data[0] ? Object.keys(data[0]) : [];
+                        break;
+                    case "plays":
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
                             },
-                            file: 1.0,
-                          },
-                        },
-                        {
-                          $unwind: {
-                            path: "$file",
-                            preserveNullAndEmptyArrays: false,
-                          },
-                        },
-                        {
-                          $group: {
-                            _id: "$timestamp",
-                            plays: {
-                              $push: "$file",
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['file', 'playlist', 'channel', 'screen']),
+                            {
+                                $lookup: {
+                                    from: "files",
+                                    localField: "file",
+                                    foreignField: "_id",
+                                    as: "file"
+                                }
                             },
-                            distinct: {
-                              $addToSet: "$file",
+                            {
+                                $lookup: {
+                                    from: "screens",
+                                    localField: "screen",
+                                    foreignField: "_id",
+                                    as: "screen"
+                                }
                             },
-                          },
-                        },
-                        {
-                          $lookup: {
-                            from: "files",
-                            localField: "distinct",
-                            foreignField: "_id",
-                            as: "distinct",
-                          },
-                        },
-                        {
-                          $sort: {
-                            _id: 1,
-                          },
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
-
-                    // postprocess results
-                    const relevantVideos = Array.from(
-                      new Set(
-                        [].concat(
-                          ...results.map((row) =>
-                            row.distinct.map((distinct) =>
-                              JSON.stringify(distinct)
-                            )
-                          )
-                        )
-                      )
-                    ).map((distinct) => JSON.parse(distinct));
-
-                    for (const date of results) {
-                      keys.push(date["_id"]);
-                    }
-
-                    for (const video of relevantVideos) {
-                      const dataRow = [video.name];
-
-                      for (const row of results) {
-                        let playCount = row.plays.filter(
-                          (play) => play.toString() === video._id.toString()
-                        ).length;
-                        dataRow.push(playCount);
-                      }
-
-                      data.push(dataRow);
-                    }
-
-                    break;
-                  case "playsscreentime":
-                    keys = ["Screen Name", "Screen ID"];
-
-                    results = await Statistic(databaseContext)
-                      .aggregate([
-                        {
-                          $match: query,
-                        },
-                        ...module.exports.generateFullTagLookupQuery(
-                          primaryTag,
-                          ["screen"]
-                        ),
-                        ...module.exports.generateFullTagLookupQuery(
-                          secondaryTag,
-                          ["file"]
-                        ),
-                        {
-                          $project: {
-                            timestamp: {
-                              $dateToString: {
-                                format: "%m/%d/%Y",
-                                date: "$when",
-                                timezone: timezoneName,
-                              },
+                            {
+                                $unwind: {
+                                    path: "$file"
+                                }
                             },
-                            screen: 1.0,
-                          },
-                        },
-                        {
-                          $unwind: {
-                            path: "$screen",
-                            preserveNullAndEmptyArrays: false,
-                          },
-                        },
-                        {
-                          $group: {
-                            _id: "$timestamp",
-                            plays: {
-                              $push: "$screen",
+                            {
+                                $unwind: {
+                                    path: "$screen"
+                                }
                             },
-                            distinct: {
-                              $addToSet: "$screen",
+                            {
+                                $project: {
+                                    _id: "$_id",
+                                    when: "$when",
+                                    file: {
+                                        name: "$file.name",
+                                        size: "$file.size",
+                                        meta: "$file.meta"
+                                    },
+                                    screen: {
+                                        name: "$screen.name",
+                                        deviceModel: "$screen.deviceModel",
+                                        ip: "$screen.ip",
+                                        searchToken: "$screen.searchToken"
+                                    }
+                                }
                             },
-                          },
-                        },
-                        {
-                          $lookup: {
-                            from: "screens",
-                            localField: "distinct",
-                            foreignField: "_id",
-                            as: "distinct",
-                          },
-                        },
-                        {
-                          $sort: {
-                            _id: 1,
-                          },
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
-                    // postprocess results
-                    const relevantScreens = Array.from(
-                      new Set(
-                        [].concat(
-                          ...results.map((row) =>
-                            row.distinct.map((distinct) =>
-                              JSON.stringify(distinct)
-                            )
-                          )
-                        )
-                      )
-                    ).map((distinct) => JSON.parse(distinct));
+                            {
+                                $sort: {
+                                    when: -1
+                                }
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
 
-                    for (const date of results) {
-                      keys.push(date["_id"]);
-                    }
+                        for (const row of results) {
+                            const duration = row.file.meta.find(meta => meta.key === 'duration');
 
-                    for (const screen of relevantScreens) {
-                      const dataRow = [screen.name, screen.searchToken];
+                            let entry = {
+                                ["Played"]: new Date(row.when).toLocaleString(timezoneLocale, { timeZone: timezoneName }),
+                                ["Video Name"]: row.file.name,
+                                ["Duration (seconds)"]: duration ? Math.round(duration.value) : 0,
+                                ["Screen Name"]: row.screen.name,
+                                ["Screen IP"]: row.screen.ip,
+                                ["File Size (bytes)"]: row.file.size
+                            };
 
-                      for (const row of results) {
-                        let playCount = row.plays.filter(
-                          (play) => play.toString() === screen._id.toString()
-                        ).length;
-                        dataRow.push(playCount);
-                      }
+                            if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
+                                entry["Statistic ID"] = row._id.toString();
+                                entry["Screen ID"] = row.screen.searchToken;
+                            }
 
-                      data.push(dataRow);
-                    }
-
-                    break;
-                  case "screenissues":
-                    results = await Screen(databaseContext)
-                      .aggregate([
-                        {
-                          $match: {
-                            ...query,
-                            issues: { $exists: true, $ne: [] },
-                          },
-                        },
-                      ])
-                      .option(aggregationConfig)
-                      .allowDiskUse(true);
-
-                    keys = [
-                      "Screen ID",
-                      "Screen Name",
-                      "Status",
-                      "PIN",
-                      "Last Played",
-                    ];
-
-                    for (const row of results) {
-                      const dataRow = {
-                        "Screen ID": row.searchToken,
-                        "Screen Name": row.name,
-                        Status: row.status,
-                        PIN: row.pin,
-                        "Last Played": null,
-                      };
-
-                      if (row.issues && row.issues.length > 0 && row.lastPing) {
-                        const notPlayingIssue = row.issues.find(
-                          (issue) => issue.type === "notplaying"
-                        );
-                        console.log(notPlayingIssue);
-                        if (notPlayingIssue) {
-                          const numberDays = Math.round(
-                            (new Date() - new Date(row.lastPing)) /
-                              (1000 * 60 * 60 * 24)
-                          );
-                          dataRow["Last Played"] = `${numberDays} days ago`;
-
-                          data.push(dataRow);
+                            data.push(entry);
                         }
-                      }
-                    }
 
-                    break;
+                        keys = data[0] ? Object.keys(data[0]) : [];
+                        break;
+                    case "screens":
+                        results = await Screen(databaseContext).aggregate([
+                            {
+                                $match: query
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
+
+                        for (const row of results) {
+                            const dataRow = {
+                                ["Screen Name"]: row.name,
+                                ["Status"]: row.status,
+                                ["Device Model"]: row.deviceModel,
+                                ["Version"]: row.version,
+                                ["Location"]: (row.location && row.location.valid && row.location.history && row.location.history.length > 0) ? row.location.history[row.location.history.length - 1].summary : null,
+                                ["PIN"]: row.pin,
+                            };
+
+                            if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
+                                dataRow["Screen ID"] = row.searchToken;
+                                dataRow["Last Played"] = null;
+
+                                if (row.issues && row.issues.length > 0 && row.lastPing) {
+                                    let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
+
+                                    if (notPlayingIssue) {
+                                        const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
+                                        dataRow["Last Played"] = `${numberDays} days ago`;
+                                    }
+                                }
+                            }
+
+                            data.push(dataRow);
+                        }
+
+                        keys = data[0] ? Object.keys(data[0]) : [];
+                        break;
+                    case "playsvideotime":
+                        keys = ['Video Name'];
+
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
+                            },
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                            ...module.exports.generateFullTagLookupQuery(secondaryTag, ['file']),
+                            {
+                                $project: {
+                                    timestamp: {
+                                        $dateToString: {
+                                            format: "%m/%d/%Y",
+                                            date: "$when",
+                                            timezone: timezoneName
+                                        }
+                                    },
+                                    file: 1.0,
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: "$file",
+                                    preserveNullAndEmptyArrays: false
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: "$timestamp",
+                                    plays: {
+                                        $push: "$file"
+                                    },
+                                    distinct: {
+                                        $addToSet: "$file"
+                                    }
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "files",
+                                    localField: "distinct",
+                                    foreignField: "_id",
+                                    as: "distinct"
+                                }
+                            },
+                            {
+                                $sort: {
+                                    _id: 1
+                                }
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
+
+                        // postprocess results
+                        const relevantVideos =
+                            Array.from(
+                                new Set([].concat(
+                                    ...results.map(row => row.distinct.map(distinct => JSON.stringify(distinct))))
+                                )
+                            ).map(distinct => JSON.parse(distinct));
+
+                        for (const date of results) {
+                            keys.push(date['_id']);
+                        }
+
+                        for (const video of relevantVideos) {
+                            const dataRow = [video.name];
+
+                            for (const row of results) {
+                                let playCount = row.plays.filter(play => play.toString() === video._id.toString()).length;
+                                dataRow.push(playCount);
+                            }
+
+                            data.push(dataRow);
+                        }
+
+                        break;
+                    case "playsscreentime":
+                        keys = ['Screen Name', 'Screen ID'];
+
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
+                            },
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                            ...module.exports.generateFullTagLookupQuery(secondaryTag, ['file']),
+                            {
+                                $project: {
+                                    timestamp: {
+                                        $dateToString: {
+                                            format: "%m/%d/%Y",
+                                            date: "$when",
+                                            timezone: timezoneName
+                                        }
+                                    },
+                                    screen: 1.0
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: "$screen",
+                                    preserveNullAndEmptyArrays: false
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: "$timestamp",
+                                    plays: {
+                                        $push: "$screen"
+                                    },
+                                    distinct: {
+                                        $addToSet: "$screen"
+                                    }
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "screens",
+                                    localField: "distinct",
+                                    foreignField: "_id",
+                                    as: "distinct"
+                                }
+                            },
+                            {
+                                $sort: {
+                                    _id: 1
+                                }
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
+                        // postprocess results
+                        const relevantScreens =
+                            Array.from(
+                                new Set([].concat(
+                                    ...results.map(row => row.distinct.map(distinct => JSON.stringify(distinct))))
+                                )
+                            ).map(distinct => JSON.parse(distinct));
+
+                        for (const date of results) {
+                            keys.push(date['_id']);
+                        }
+
+                        for (const screen of relevantScreens) {
+                            const dataRow = [screen.name, screen.searchToken];
+
+                            for (const row of results) {
+                                let playCount = row.plays.filter(play => play.toString() === screen._id.toString()).length;
+                                dataRow.push(playCount);
+                            }
+
+                            data.push(dataRow);
+                        }
+
+                        break;
+                    case "screenissues":
+                        results = await Screen(databaseContext).aggregate([
+                            {
+                                $match: {
+                                    ...query,
+                                    issues: { $exists: true, $ne: [] }
+                                }
+                            }
+                        ]).option(aggregationConfig).allowDiskUse(true);
+
+                        keys = ["Screen ID", "Screen Name", "Status", "PIN", "Last Played"];
+
+                        for (const row of results) {
+                            const dataRow = {
+                                "Screen ID": row.searchToken,
+                                "Screen Name": row.name,
+                                "Status": row.status,
+                                "PIN": row.pin,
+                                "Last Played": null
+                            }
+
+                            if (row.issues && row.issues.length > 0 && row.lastPing) {
+                                const notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
+                                console.log(notPlayingIssue);
+                                if (notPlayingIssue) {
+                                    const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
+                                    dataRow["Last Played"] = `${numberDays} days ago`;
+
+                                    data.push(dataRow);
+                                }
+                            }
+                        }
+
+                        break;
                     case "dailystream":
-                        keys = ["Screen Name"];
-                        let datesBetween = [];
-                        let currentDate = new Date(
-                            filter.startTime.valueOf() - 24 * 60 * 60 * 1000
-                        );
-                        while (currentDate < filter.endTime - 24 * 60 * 60 * 1000) {
-                            //this creates a list of dates which we can use to build our array that will be used for printing
-                            currentDate = new Date(
-                                currentDate.valueOf() + 24 * 60 * 60 * 1000
-                            );
-                            const dateString = currentDate.toLocaleDateString(
-                                "en-US",
-                                { year: "numeric", month: "2-digit", day: "2-digit" }
-                            );
-                            console.log("current date = " + dateString);
-                            datesBetween[dateString.toString()] = "0";
-                            keys.push(dateString.toString());
+                        keys = ['Screen Name'];
+                        let datesBetween = []
+                        let currentDate = new Date(filter.startTime.valueOf() - 24 * 60 * 60 * 1000)
+                        while (currentDate < filter.endTime - 24 * 60 * 60 * 1000) { //this creates a list of dates which we can use to build our array that will be used for printing
+                            currentDate = new Date(currentDate.valueOf() + 24 * 60 * 60 * 1000)
+                            const dateString = currentDate.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
+                            datesBetween[dateString.toString()] = '0'
+                            keys.push(dateString.toString())
                         }
 
-                        results = await Statistic(databaseContext)
-                            .aggregate([
-                                {
-                                    $match: query,
-                                },
-                                ...module.exports.generateFullTagLookupQuery(
-                                    primaryTag,
-                                    ["screen"]
-                                ),
-                                {
-                                    $project: {
-                                        timestamp: {
-                                            $dateToString: {
-                                                format: "%m/%d/%Y",
-                                                date: "$when",
-                                                timezone: timezoneName,
-                                            },
-                                        },
-                                        file: 1.0,
-                                        screen: 1.0,
+                        results = await Statistic(databaseContext).aggregate([
+                            {
+                                $match: query
+                            },
+                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
+                            {
+                                $project: {
+                                    timestamp: {
+                                        $dateToString: {
+                                            format: "%m/%d/%Y",
+                                            date: "$when",
+                                            timezone: timezoneName
+                                        }
                                     },
-                                },
-                                {
-                                    $unwind: {
-                                        path: "$screen",
-                                        preserveNullAndEmptyArrays: false,
-                                    },
-                                },
-                                {
-                                    $group: {
-                                        _id: { timestamp: "$timestamp", screen: "$screen" },
-                                        plays: {
-                                            $push: "$file",
-                                        },
-                                    },
-                                },
-                                {
-                                    $lookup: {
-                                        from: "screens",
-                                        localField: "_id.screen",
-                                        foreignField: "_id",
-                                        as: "screen",
-                                    },
-                                },
-                                {
-                                    $lookup: {
-                                        from: "files",
-                                        localField: "plays",
-                                        foreignField: "_id",
-                                        as: "distinct",
-                                    },
-                                },
-                                {
-                                    $sort: {
-                                        _id: 1,
-                                    },
-                                },
-                            ])
-                            .option(aggregationConfig)
-                            .allowDiskUse(false);
+                                    file: 1.0,
+                                    screen: 1.0
+                                }
+                            },
+                            {
+                                $unwind: {
+                                    path: "$screen",
+                                    preserveNullAndEmptyArrays: false
+                                }
+                            },
+                            {
+                                $group: {
+                                    _id: { timestamp: "$timestamp", screen: "$screen" },
+                                    plays: {
+                                        $push: "$file"
+                                    }
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "screens",
+                                    localField: "_id.screen",
+                                    foreignField: "_id",
+                                    as: "screen"
+                                }
+                            },
+                            {
+                                $lookup: {
+                                    from: "files",
+                                    localField: "plays",
+                                    foreignField: "_id",
+                                    as: "distinct"
+                                }
+                            },
+                            {
+                                $sort: {
+                                    _id: 1
+                                }
+                            }
+
+                        ]).option(aggregationConfig).allowDiskUse(false);
+
 
                         let playtime = [];
-                        results.forEach((item) => {
-                            //each returned item grouped by screen and timestamp. this contains the full screen document and full distinct video documents which is used with plays to determine duration
+                        results.forEach((item) => { //each returned item grouped by screen and timestamp. this contains the full screen document and full distinct video documents which is used with plays to determine duration
 
-                            const _id = item._id;
-                            const date = _id.timestamp;
+                            const _id = item._id
+                            const date = _id.timestamp
 
-                            const screenName = item.screen[0]["name"];
+                            const screenName = item.screen[0]['name']
 
-                            const plays = item.plays;
+                            const plays = item.plays
                             let dailyPlaytime = 0;
-                            plays.forEach((fileId) => {
-                                const video = item.distinct.find(
-                                    (video) => video._id.toString() === fileId.toString()
-                                );
-                                const durationMeta = video.meta.find(
-                                    (entry) => entry.key === "duration"
-                                );
-                                let durationValue = durationMeta
-                                    ? durationMeta.value
-                                    : 0;
+                            plays.forEach((fileId) => { //finds total length of all videos that played on this date for this screen
+                                const video = item.distinct.find(video => video._id.toString() === fileId.toString())
+                                const durationMeta = video.meta.find(entry => entry.key === 'duration')
+                                let durationValue = (durationMeta) ? durationMeta.value : 0;
                                 dailyPlaytime += parseFloat(durationValue);
-                            });
-                            dailyPlaytime = new Date(dailyPlaytime * 1000)
-                                .toISOString()
-                                .substr(11, 8);
+                            })
+                            dailyPlaytime = new Date(dailyPlaytime * 1000).toISOString().substr(11, 8) //makes duration pretty
 
-                            if (typeof playtime[screenName] === "undefined") {
+                            if (typeof playtime[screenName] === 'undefined') {
                                 let deepCopiedDates = [];
-                                for (const key in datesBetween) {
-                                    //need to deep copy cant use lodash or stringify parse so we do it manually
-                                    deepCopiedDates[key] = datesBetween[key];
+                                for (const key in datesBetween) { //need to deep copy cant use lodash or stringify parse so we do it manually
+                                    deepCopiedDates[key] = datesBetween[key]
                                 }
 
                                 playtime[screenName] = deepCopiedDates;
                             }
 
-                            playtime[screenName][date.toString()] = dailyPlaytime;
+                            playtime[screenName][date.toString()] = dailyPlaytime
                         });
 
                         for (const index in playtime) {
-                            let finalOutput = [];
-                            for (const index2 in playtime[index]) {
-                                console.log(playtime[index][index2]);
-                                finalOutput.push(playtime[index][index2]);
+                            let finalOutput = []
+                            for (const index2 in playtime[index]) { 
+                                finalOutput.push(playtime[index][index2])
                             }
-                            finalOutput.unshift(index.toString());
-                            data.push(finalOutput);
+                            finalOutput.unshift(index.toString()) //adds screen name to front of array
+                            data.push(finalOutput)
                         }
 
                         break;
