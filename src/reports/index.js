@@ -751,9 +751,8 @@ module.exports = {
                             const dateString = currentDate.toLocaleDateString("en-US", {year: "numeric",month: "2-digit",day: "2-digit"});
                             console.log("current date = " +dateString)
                             datesBetween[dateString.toString()] = '0'
+                            keys.push(dateString.toString())
                         }
-
-                        console.log(datesBetween)
                         
                         results = await Statistic(databaseContext).aggregate([
                             {
@@ -832,7 +831,7 @@ module.exports = {
                                 let durationValue = (durationMeta) ? durationMeta.value : 0;
                                 dailyPlaytime += parseFloat(durationValue);
                             })
-                            dailyPlaytime = Math.round(dailyPlaytime / 60) / 60
+                            dailyPlaytime = new Date(dailyPlaytime * 1000).toISOString().substr(11, 8)
 
                             if(typeof playtime[screenName] === 'undefined'){
                                 let deepCopiedDates = [];
@@ -841,13 +840,25 @@ module.exports = {
                                 }
                                 
                                 playtime[screenName] = deepCopiedDates; 
-                                console.log(deepCopiedDates)
                             }
 
                             playtime[screenName][date.toString()] = dailyPlaytime
                           });
 
-                          console.log(playtime)
+                          for(const index in playtime){
+                            let finalOutput = []
+                            console.log(index)
+                            for(const index2 in playtime[index]){
+                                console.log(playtime[index][index2])
+                                finalOutput.push(playtime[index][index2])
+                            }
+                            finalOutput.unshift(index.toString())
+                            data.push(finalOutput)
+                            
+                          }
+                          console.log(data)
+
+
                         break;
                     default:
                         reject("Invalid report type");
@@ -855,8 +866,8 @@ module.exports = {
                 }
 
                 try {
-                    // let report = await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url });
-                    // resolve(report);
+                    let report = await module.exports.bundleReport({ user, exportConfig, filter, data, keys, uploadKey, url });
+                    resolve(report);
                 } catch (e) {
                     reject(e.toString());
                 }
