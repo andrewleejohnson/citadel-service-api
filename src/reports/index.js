@@ -744,8 +744,17 @@ module.exports = {
                     case "dailystream":
                         let screens;
                         keys = ['Screen Name'];
-                        
+                        let datesBetween = []
+                        let currentDate = new Date (filter.startTime.valueOf() - 24*60*60*1000)
+                        while(currentDate < filter.endTime - 24*60*60*1000){
+                            currentDate = new Date (currentDate.valueOf() + 24*60*60*1000)
+                            const dateString = currentDate.toLocaleDateString("en-US", {year: "numeric",month: "2-digit",day: "2-digit"});
+                            console.log("current date = " +dateString)
+                            datesBetween[dateString.toString()] = []
+                        }
 
+                        console.log(datesBetween)
+                        
                         results = await Statistic(databaseContext).aggregate([
                             {
                                 $match: query
@@ -801,16 +810,14 @@ module.exports = {
                             }
 
                         ]).option(aggregationConfig).allowDiskUse(false);
+
+
                         let playtime = [];
                         let screenNames = [];
-                        results.forEach((item) => {
-                            let dates = [];
+                        results.forEach((item) => { //each returned item grouped by screen and timestamp. this contains the full screen document and full distinct video documents which is used with plays to determine duration
 
                             const _id = item._id 
                             const date = _id.timestamp
-                            if (!dates.includes(date)){
-                                dates.push(date)
-                            }
 
                             const screenName = item.screen[0]['name']
                             if (!screenNames.includes(screenName)){
@@ -827,24 +834,18 @@ module.exports = {
                             })
                             dailyPlaytime = Math.round(dailyPlaytime / 60) / 60
 
-                            dates.sort((a,b)=>a-b);
-
-
                             if(typeof playtime[screenName] === 'undefined'){
-                                playtime[screenName] = [];
+                                playtime[screenName] = JSON.parse(JSON.stringify(datesBetween)); //need to deep copy
                             }
-                            playtime[screenName][date] = dailyPlaytime
 
+                            playtime[screenName][date.toString()] = dailyPlaytime
                           });
+
 
                           playtime.forEach((item) => {
                             item.sort((a,b)=>a-b);
                           });
                           console.log(playtime)
-                        console.log('aaaaaaaaaaaaaa')
-                        // console.log(dates)
-
-
                         break;
                     default:
                         reject("Invalid report type");
