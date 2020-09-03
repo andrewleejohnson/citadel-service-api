@@ -771,14 +771,8 @@ module.exports = {
                                 }
                             },
                             {
-                                $unwind: {
-                                    path: "$screen",
-                                    preserveNullAndEmptyArrays: false
-                                }
-                            },
-                            {
                                 $group: {
-                                    _id: { timestamp: "$timestamp", screen: "$screen" },
+                                    _id: { timestamp: "$timestamp", screen: "$screen"},
                                     plays: {
                                         $push: "$file"
                                     }
