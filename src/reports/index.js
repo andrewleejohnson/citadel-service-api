@@ -801,12 +801,20 @@ module.exports = {
                                 }
                             },
                             {
+                                $project: {
+                                    "distinct._id":1,
+                                    "distinct.meta":1,
+                                    "screen":1,
+                                    "plays":1,
+                            }
+                            },
+                            {
                                 $sort: {
                                     _id: 1
                                 }
                             }
 
-                        ]).option(aggregationConfig).allowDiskUse(false);
+                        ]).option(aggregationConfig).allowDiskUse(true)
 
 
                         let playtime = [];
