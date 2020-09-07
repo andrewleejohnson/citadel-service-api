@@ -877,9 +877,7 @@ module.exports = {
                         if(filter.primaryFilterType.value === 'channel'){
                             keys = ['Playlist Name','Video Name', 'Duration H/M/S']
 
-                            // console.log(filter.primaryResource)
                              for(const index in filter.primaryResource.slots){
-                                console.log(filter.primaryResource.slots[index])
                                 const slot = filter.primaryResource.slots[index]
                                 if(slot.type == 'playlist'){
                                     results = await Playlist(databaseContext).aggregate([ 
@@ -914,9 +912,7 @@ module.exports = {
                                     ]).option(aggregationConfig).allowDiskUse(true);
 
                                     for(const videoIndex in results[0].videos){
-                                        // console.log(results[index])
                                         const playlistName = results[0].name
-
                                       
                                         let video = results[0].videos[videoIndex]
                                         const durationMeta = video.meta.find(entry => entry.key === 'duration')
@@ -928,23 +924,19 @@ module.exports = {
                                         data.push([playlistName,videoName,formattedTime])
                                         
                                     }
-                                    let playlistName = results.name;
 
                                 }
                                 else if(slot.type == 'file'){
                                     results = await File(databaseContext).find({
                                         '_id':slot.resource
                                     })
-                                    console.log(results)
                                     const durationMeta = results[0].meta.find(entry => entry.key === 'duration')
                                     let durationValue = (durationMeta) ? durationMeta.value : 0;
                                 
                                     let formattedTime = module.exports.formatDuration(durationValue)
 
                                     const videoName = results[0].name;
-                                    console.log(videoName)
                                     data.push([' ', videoName, formattedTime])
-                                        console.log(results)
                                     }
                             }
     
@@ -952,7 +944,6 @@ module.exports = {
                         else if(filter.primaryFilterType.value === 'playlist'){
                             keys = ['Playlist Name','Video Name', 'Duration H/M/S']
 
-                            console.log(filter.primaryResource.name)
                             results = await Playlist(databaseContext).aggregate([ //some of this might be unessecary i did not know filter.primaryResource returns all the videoIds when i made this
                                 {
                                     $match: query
@@ -982,10 +973,7 @@ module.exports = {
                             let videos = results[0].videos
                             data.push([filter.primaryResource.name, ' ', ' '])
 
-                            // console.log(JSON.stringify(videos,null,2))
-
                            videos.forEach((video) => {
-                            // console.log(JSON.stringify(video,null,2))
                                 
                             const durationMeta = video.meta.find(entry => entry.key === 'duration')
                             let durationValue = (durationMeta) ? durationMeta.value : 0;
@@ -1000,7 +988,6 @@ module.exports = {
                         
                            })
                                 
-                            // console.log(JSON.stringify(results,null,2))
                         }
                         break;
                     default:
