@@ -9,7 +9,7 @@ import moment from 'moment';
 
 import logger from '../logger';
 import aws from '../static/aws';
-import { Screen, Statistic } from '../database/models';
+import { Screen, Statistic, Playlist, Channel } from '../database/models';
 import { json } from 'body-parser';
 
 const ERRORS = {};
@@ -376,6 +376,18 @@ module.exports = {
                             }
                         }
                         break;
+                    case "videosduration":
+
+                        query = {};
+
+                        switch (filter.primaryFilterType.value) {
+                            case "channel":
+                                query['_id'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                                break;
+                            case "playlist":
+                                query['_id'] = mongoose.Types.ObjectId(filter.primaryResource._id);
+                                break;
+                        }
                 }
 
                 let aggregationConfig = {
@@ -850,6 +862,75 @@ module.exports = {
                             data.push(finalOutput)
                         }
 
+                        break;
+                    case "videosduration":
+                        if(filter.primaryFilterType.value === 'channel'){
+                            results = await Channel(databaseContext).aggregate([
+                                {
+                                    $match: {query}
+                                },
+                                {
+                                    $project: {
+                                        channel: 1.0,
+                                    }
+                                },
+
+                            ]).option(aggregationConfig).allowDiskUse(true);
+    
+                        }
+                        else if(filter.primaryFilterType.value === 'playlist'){
+                            keys = ['Playlist Name','Video Name', 'Duration H/M/S']
+
+                            console.log(filter.primaryResource.name)
+                            results = await Playlist(databaseContext).aggregate([ //some of this might be unessecary i did not know filter.primaryResource returns all the videoIds when i made this
+                                {
+                                    $match: query
+                                },
+                                {
+                                    $lookup: {
+                                        from: "files",
+                                        localField: "videos",
+                                        foreignField: "_id",
+                                        as: "videos"
+                                    }
+                                },
+                                {
+                                    $project: {
+                                        "playlist":1,
+                                        "videos.meta":1,
+                                        "videos.name":1,
+                                    }
+                                }
+
+                            ]).option(aggregationConfig).allowDiskUse(true);
+                            if(results === []){
+                                reject('Playlist contains no videos')
+                            }
+
+
+                            let videos = results[0].videos
+                            data.push([filter.primaryResource.name, ' ', ' '])
+
+                            // console.log(JSON.stringify(videos,null,2))
+
+                           videos.forEach((video) => {
+                            // console.log(JSON.stringify(video,null,2))
+                                
+                            const durationMeta = video.meta.find(entry => entry.key === 'duration')
+                            let durationValue = (durationMeta) ? durationMeta.value : 0;
+                            durationValue = Math.floor(durationValue)
+                            let duration = new Date(null)
+                            duration.setSeconds(durationValue)
+                            let formattedTime = duration.toISOString().substr(11,8)
+
+
+                            const videoName = video.name;
+                            data.push([' ', videoName, formattedTime])
+                        
+                           })
+                                
+                            // console.log(JSON.stringify(results,null,2))
+                        }
                         break;
                     default:
                         reject("Invalid report type");
