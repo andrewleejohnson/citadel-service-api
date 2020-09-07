@@ -2,6 +2,7 @@ import ScreenModel from "./screen";
 import PlaylistModel from "./playlist";
 import ChannelModel from "./channel";
 import StatisticModel from "./statistic";
+import FileModel from "./file"
 
 const MODEL_POOL = {};
 
@@ -19,3 +20,4 @@ export const Screen = (context) => getModelForContext(ScreenModel, "screen", con
 export const Statistic = (context) => getModelForContext(StatisticModel, "statistic", context);
 export const Playlist = (context) => getModelForContext(PlaylistModel, "playlist", context);
 export const Channel = (context) => getModelForContext(ChannelModel, "channel", context);
+export const File = (context) => getModelForContext(FileModel, "file", context);
