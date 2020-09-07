@@ -874,15 +874,15 @@ module.exports = {
 
                         break;
                     case "videosduration":
-                        if(filter.primaryFilterType.value === 'channel'){
-                            keys = ['Playlist Name','Video Name', 'Duration H/M/S']
+                        if (filter.primaryFilterType.value === 'channel') {
+                            keys = ['Playlist Name', 'Video Name', 'Duration H/M/S']
 
-                             for(const index in filter.primaryResource.slots){
+                            for (const index in filter.primaryResource.slots) {
                                 const slot = filter.primaryResource.slots[index]
-                                if(slot.type == 'playlist'){
-                                    results = await Playlist(databaseContext).aggregate([ 
+                                if (slot.type == 'playlist') {
+                                    results = await Playlist(databaseContext).aggregate([
                                         {
-                                            $match: {'_id':mongoose.Types.ObjectId(slot.resource)}
+                                            $match: { '_id': mongoose.Types.ObjectId(slot.resource) }
                                         },
                                         {
                                             $lookup: {
@@ -893,27 +893,27 @@ module.exports = {
                                             }
                                         },
                                         {
-                                        $lookup: {
-                                            from: "playlist",
-                                            localField: "_id",
-                                            foreignField: "_id",
-                                            as: "playlist"
+                                            $lookup: {
+                                                from: "playlist",
+                                                localField: "_id",
+                                                foreignField: "_id",
+                                                as: "playlist"
                                             }
                                         },
 
                                         {
                                             $project: {
-                                                "name":1,
-                                                "videos.meta":1,
-                                                "videos.name":1,
+                                                "name": 1,
+                                                "videos.meta": 1,
+                                                "videos.name": 1,
                                             }
                                         }
-        
+
                                     ]).option(aggregationConfig).allowDiskUse(true);
 
-                                    for(const videoIndex in results[0].videos){
+                                    for (const videoIndex in results[0].videos) {
                                         const playlistName = results[0].name
-                                      
+
                                         let video = results[0].videos[videoIndex]
                                         const durationMeta = video.meta.find(entry => entry.key === 'duration')
                                         let durationValue = (durationMeta) ? durationMeta.value : 0;
@@ -921,28 +921,28 @@ module.exports = {
                                         let formattedTime = module.exports.formatDuration(durationValue)
                                         const videoName = video.name;
 
-                                        data.push([playlistName,videoName,formattedTime])
-                                        
+                                        data.push([playlistName, videoName, formattedTime])
+
                                     }
 
                                 }
-                                else if(slot.type == 'file'){
+                                else if (slot.type == 'file') {
                                     results = await File(databaseContext).find({
-                                        '_id':slot.resource
+                                        '_id': slot.resource
                                     })
                                     const durationMeta = results[0].meta.find(entry => entry.key === 'duration')
                                     let durationValue = (durationMeta) ? durationMeta.value : 0;
-                                
+
                                     let formattedTime = module.exports.formatDuration(durationValue)
 
                                     const videoName = results[0].name;
                                     data.push([' ', videoName, formattedTime])
-                                    }
+                                }
                             }
-    
+
                         }
-                        else if(filter.primaryFilterType.value === 'playlist'){
-                            keys = ['Playlist Name','Video Name', 'Duration H/M/S']
+                        else if (filter.primaryFilterType.value === 'playlist') {
+                            keys = ['Playlist Name', 'Video Name', 'Duration H/M/S']
 
                             results = await Playlist(databaseContext).aggregate([ //some of this might be unessecary i did not know filter.primaryResource returns all the videoIds when i made this
                                 {
@@ -958,14 +958,14 @@ module.exports = {
                                 },
                                 {
                                     $project: {
-                                        "playlist":1,
-                                        "videos.meta":1,
-                                        "videos.name":1,
+                                        "playlist": 1,
+                                        "videos.meta": 1,
+                                        "videos.name": 1,
                                     }
                                 }
 
                             ]).option(aggregationConfig).allowDiskUse(true);
-                            if(results === []){
+                            if (results === []) {
                                 reject('Playlist contains no videos')
                             }
 
@@ -973,21 +973,21 @@ module.exports = {
                             let videos = results[0].videos
                             data.push([filter.primaryResource.name, ' ', ' '])
 
-                           videos.forEach((video) => {
-                                
-                            const durationMeta = video.meta.find(entry => entry.key === 'duration')
-                            let durationValue = (durationMeta) ? durationMeta.value : 0;
-                            durationValue = Math.floor(durationValue)
-                            let duration = new Date(null)
-                            duration.setSeconds(durationValue)
-                            let formattedTime = duration.toISOString().substr(11,8)
+                            videos.forEach((video) => {
+
+                                const durationMeta = video.meta.find(entry => entry.key === 'duration')
+                                let durationValue = (durationMeta) ? durationMeta.value : 0;
+                                durationValue = Math.floor(durationValue)
+                                let duration = new Date(null)
+                                duration.setSeconds(durationValue)
+                                let formattedTime = duration.toISOString().substr(11, 8)
 
 
-                            const videoName = video.name;
-                            data.push([' ', videoName, formattedTime])
-                        
-                           })
-                                
+                                const videoName = video.name;
+                                data.push([' ', videoName, formattedTime])
+
+                            })
+
                         }
                         break;
                     default:
