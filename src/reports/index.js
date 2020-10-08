@@ -11,7 +11,6 @@ import logger from '../logger';
 import aws from '../static/aws';
 import { Screen, Statistic, Playlist, Channel, File } from '../database/models';
 import { json } from 'body-parser';
-
 const ERRORS = {};
 
 module.exports = {
@@ -175,6 +174,10 @@ module.exports = {
 
                     if (filter.primaryResource.hasOwnProperty('name') && filter.primaryResource.hasOwnProperty('value')) {
                         writeProperty('Report filtered by', `${filter.primaryResource.name} [${filter.primaryFilterType.value}]`);
+                    }
+
+                    if(filter.type.value === 'videos') {
+                        writeProperty('Resource type', `${filter.primaryResource.name}`);
                     }
 
                     writeProperty('Report timezone', filter.tzName);
@@ -364,26 +367,11 @@ module.exports = {
                         }
                         break;
                     case "dailystream":
-                        query = {
-                            when: {
-                                $gte: filter.startTime,
-                                $lte: filter.endTime
-                            }
-                        };
 
-                        switch (filter.primaryFilterType.value) {
-                            case "tag":
-                                primaryTag = mongoose.Types.ObjectId(filter.primaryResource._id);
-                                break;
-                        }
-
-                        if (filter.secondaryFilterType && filter.secondaryFilterType.value) {
-                            switch (filter.secondaryFilterType.value) {
-                                case "tag":
-                                    secondaryTag = mongoose.Types.ObjectId(filter.secondaryResource._id);
-                                    break;
-
-                            }
+                        if(filter.primaryFilterType.value === 'tag'){
+                            query = {
+                              "tags":mongoose.Types.ObjectId(filter.primaryResource._id)
+                            };
                         }
                         break;
                     case "videosduration":
@@ -764,109 +752,97 @@ module.exports = {
 
                         break;
                     case "dailystream":
+                        aggregationConfig = {
+                            maxTimeMS: 600000
+                        }
+
                         keys = ['Screen Name'];
                         let datesBetween = []
                         let currentDate = new Date(filter.startTime.valueOf() - 24 * 60 * 60 * 1000)
                         while (currentDate < filter.endTime - 24 * 60 * 60 * 1000) { //this creates a list of dates which we can use to build our array that will be used for printing
                             currentDate = new Date(currentDate.valueOf() + 24 * 60 * 60 * 1000)
                             const dateString = currentDate.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
-                            datesBetween[dateString.toString()] = '0'
+                            datesBetween[dateString.toString()] = 0
                             keys.push(dateString.toString())
-                        }
+                        }   
 
-                        results = await Statistic(databaseContext).aggregate([
+                        results = await Screen(databaseContext).aggregate([
                             {
                                 $match: query
                             },
-                            ...module.exports.generateFullTagLookupQuery(primaryTag, ['screen']),
                             {
-                                $project: {
-                                    timestamp: {
-                                        $dateToString: {
-                                            format: "%m/%d/%Y",
-                                            date: "$when",
-                                            timezone: timezoneName
-                                        }
-                                    },
-                                    file: 1.0,
-                                    screen: 1.0
+                                $lookup : { 
+                                    from: "statistics",
+                                    localField: "_id",
+                                    foreignField: "screen",
+                                    as: "stats"
                                 }
                             },
                             {
-                                $group: {
-                                    _id: { timestamp: "$timestamp", screen: "$screen"},
-                                    plays: {
-                                        $push: "$file"
+                                $project : { 
+                                    "name" : 1.0,
+                                    "stats":{
+                                        $filter:{
+                                            input: "$stats",
+                                            as: "stats",
+                                            cond:{
+                                                $and:[
+                                                    {$gte:["$$stats.when",filter.startTime]},
+                                                    {$lte:["$$stats.when",filter.endTime]}
+                                                ]
+                                            }
+                                        }
                                     }
                                 }
                             },
                             {
-                                $lookup: {
-                                    from: "screens",
-                                    localField: "_id.screen",
-                                    foreignField: "_id",
-                                    as: "screen"
-                                }
-                            },
-                            {
-                                $lookup: {
+                                $lookup : { 
                                     from: "files",
-                                    localField: "plays",
+                                    localField: "stats.file",
                                     foreignField: "_id",
-                                    as: "distinct"
-                                }
-                            },
-                            {
-                                $project: {
-                                    "distinct._id":1,
-                                    "distinct.meta":1,
-                                    "screen":1,
-                                    "plays":1,
-                            }
-                            },
-                            {
-                                $sort: {
-                                    _id: 1
+                                    as: "files"
                                 }
                             }
-
                         ]).option(aggregationConfig).allowDiskUse(true)
 
+                        // console.log(results)
 
                         let playtime = [];
                         results.forEach((item) => { //each returned item grouped by screen and timestamp. this contains the full screen document and full distinct video documents which is used with plays to determine duration
 
-                            const _id = item._id
-                            const date = _id.timestamp
 
-                            const screenName = item.screen[0]['name']
+                            const screenName = item.name.toString()
 
-                            const plays = item.plays
+                            const plays = item.stats
                             let dailyPlaytime = 0;
-                            plays.forEach((fileId) => { //finds total length of all videos that played on this date for this screen
-                                const video = item.distinct.find(video => video._id.toString() === fileId.toString())
+                            plays.forEach((play) => { 
+                                let playID = play.file;
+                                let playDate = play.when;
+                                playDate = new Date(playDate)
+                                playDate = playDate.toLocaleString('en-US', { timeZone: 'America/New_York',year: "numeric", month: "2-digit", day: "2-digit"  })
+                                const video = item.files.find(video => video._id.toString() === playID.toString())
                                 const durationMeta = video.meta.find(entry => entry.key === 'duration')
-                                let durationValue = (durationMeta) ? durationMeta.value : 0;
-                                dailyPlaytime += parseFloat(durationValue);
-                            })
-                            dailyPlaytime = new Date(dailyPlaytime * 1000).toISOString().substr(11, 8) //makes duration pretty
 
-                            if (typeof playtime[screenName] === 'undefined') {
-                                let deepCopiedDates = [];
-                                for (const key in datesBetween) { //need to deep copy cant use lodash or stringify parse so we do it manually
-                                    deepCopiedDates[key] = datesBetween[key]
+                                 if (typeof playtime[screenName] === 'undefined') {
+                                    let deepCopiedDates = [];
+                                    for (const key in datesBetween) { //need to deep copy cant use lodash or stringify parse so we do it manually
+                                        deepCopiedDates[key] = datesBetween[key]
+                                    }
+
+                                    playtime[screenName] = deepCopiedDates;
                                 }
 
-                                playtime[screenName] = deepCopiedDates;
-                            }
-
-                            playtime[screenName][date.toString()] = dailyPlaytime
+                                let durationValue = (durationMeta) ? durationMeta.value : 0;
+                                dailyPlaytime += playtime[screenName][playDate.toString()] += parseFloat(durationValue);
+                              
+                            })
+                            
                         });
-
+                        console.log(playtime)
                         for (const index in playtime) {
                             let finalOutput = []
                             for (const index2 in playtime[index]) { 
-                                finalOutput.push(playtime[index][index2])
+                                finalOutput.push(module.exports.formatDuration(playtime[index][index2]))
                             }
                             finalOutput.unshift(index.toString()) //adds screen name to front of array
                             data.push(finalOutput)
