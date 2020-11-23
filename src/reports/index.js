@@ -547,16 +547,11 @@ module.exports = {
 
                             if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                                 dataRow["Screen ID"] = row.searchToken;
-                                dataRow["Last Played"] = null;
-
-                                if (row.issues && row.issues.length > 0 && row.lastPing) {
-                                    let notPlayingIssue = row.issues.find(issue => issue.type === 'notplaying');
-
-                                    if (notPlayingIssue) {
-                                        const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
-                                        dataRow["Last Played"] = `${numberDays} days ago`;
-                                    }
-                                }
+                                
+                                const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
+                                dataRow["Last Played"] = `${numberDays} days ago`;
+                                    
+                                
                             }
 
                             data.push(dataRow);
