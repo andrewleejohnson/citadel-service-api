@@ -176,7 +176,7 @@ module.exports = {
                         writeProperty('Report filtered by', `${filter.primaryResource.name} [${filter.primaryFilterType.value}]`);
                     }
 
-                    if(filter.type.value === 'videos') {
+                    if (filter.type.value === 'videos') {
                         writeProperty('Resource type', `${filter.primaryResource.name}`);
                     }
 
@@ -278,7 +278,7 @@ module.exports = {
         let newDurationValue = Math.floor(durationValue)
         let duration = new Date(null)
         duration.setSeconds(newDurationValue)
-        let formattedTime = duration.toISOString().substr(11,8)
+        let formattedTime = duration.toISOString().substr(11, 8)
         return formattedTime
     },
 
@@ -368,9 +368,9 @@ module.exports = {
                         break;
                     case "dailystream":
 
-                        if(filter.primaryFilterType.value === 'tag'){
+                        if (filter.primaryFilterType.value === 'tag') {
                             query = {
-                              "tags":mongoose.Types.ObjectId(filter.primaryResource._id)
+                                "tags": mongoose.Types.ObjectId(filter.primaryResource._id)
                             };
                         }
                         break;
@@ -547,11 +547,11 @@ module.exports = {
 
                             if (exportConfig.exportInternalIDs && exportConfig.format.value !== "pdf") {
                                 dataRow["Screen ID"] = row.searchToken;
-                                
+
                                 const numberDays = Math.round((new Date() - new Date(row.lastPing)) / (1000 * 60 * 60 * 24));
                                 dataRow["Last Played"] = `${numberDays} days ago`;
-                                    
-                                
+
+
                             }
 
                             data.push(dataRow);
@@ -673,28 +673,17 @@ module.exports = {
                                         $addToSet: "$screen"
                                     }
                                 }
-                            },
-                            {
-                                $lookup: {
-                                    from: "screens",
-                                    localField: "distinct",
-                                    foreignField: "_id",
-                                    as: "distinct"
-                                }
-                            },
-                            {
-                                $sort: {
-                                    _id: 1
-                                }
                             }
                         ]).option(aggregationConfig).allowDiskUse(true);
+
                         // postprocess results
-                        const relevantScreens =
-                            Array.from(
+                        const relevantScreens = await Screen(databaseContext).find({
+                            _id: Array.from(
                                 new Set([].concat(
-                                    ...results.map(row => row.distinct.map(distinct => JSON.stringify(distinct))))
+                                    ...results.map(row => row.distinct))
                                 )
-                            ).map(distinct => JSON.parse(distinct));
+                            )
+                        });
 
                         for (const date of results) {
                             keys.push(date['_id']);
@@ -759,14 +748,14 @@ module.exports = {
                             const dateString = currentDate.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" });
                             datesBetween[dateString.toString()] = 0
                             keys.push(dateString.toString())
-                        }   
+                        }
 
                         results = await Screen(databaseContext).aggregate([
                             {
                                 $match: query
                             },
                             {
-                                $lookup : { 
+                                $lookup: {
                                     from: "statistics",
                                     localField: "_id",
                                     foreignField: "screen",
@@ -774,16 +763,16 @@ module.exports = {
                                 }
                             },
                             {
-                                $project : { 
-                                    "name" : 1.0,
-                                    "stats":{
-                                        $filter:{
+                                $project: {
+                                    "name": 1.0,
+                                    "stats": {
+                                        $filter: {
                                             input: "$stats",
                                             as: "stats",
-                                            cond:{
-                                                $and:[
-                                                    {$gte:["$$stats.when",filter.startTime]},
-                                                    {$lte:["$$stats.when",filter.endTime]}
+                                            cond: {
+                                                $and: [
+                                                    { $gte: ["$$stats.when", filter.startTime] },
+                                                    { $lte: ["$$stats.when", filter.endTime] }
                                                 ]
                                             }
                                         }
@@ -791,7 +780,7 @@ module.exports = {
                                 }
                             },
                             {
-                                $lookup : { 
+                                $lookup: {
                                     from: "files",
                                     localField: "stats.file",
                                     foreignField: "_id",
@@ -810,15 +799,15 @@ module.exports = {
 
                             const plays = item.stats
                             let dailyPlaytime = 0;
-                            plays.forEach((play) => { 
+                            plays.forEach((play) => {
                                 let playID = play.file;
                                 let playDate = play.when;
                                 playDate = new Date(playDate)
-                                playDate = playDate.toLocaleString('en-US', { timeZone: 'America/New_York',year: "numeric", month: "2-digit", day: "2-digit"  })
+                                playDate = playDate.toLocaleString('en-US', { timeZone: 'America/New_York', year: "numeric", month: "2-digit", day: "2-digit" })
                                 const video = item.files.find(video => video._id.toString() === playID.toString())
                                 const durationMeta = video.meta.find(entry => entry.key === 'duration')
 
-                                 if (typeof playtime[screenName] === 'undefined') {
+                                if (typeof playtime[screenName] === 'undefined') {
                                     let deepCopiedDates = [];
                                     for (const key in datesBetween) { //need to deep copy cant use lodash or stringify parse so we do it manually
                                         deepCopiedDates[key] = datesBetween[key]
@@ -829,14 +818,14 @@ module.exports = {
 
                                 let durationValue = (durationMeta) ? durationMeta.value : 0;
                                 dailyPlaytime += playtime[screenName][playDate.toString()] += parseFloat(durationValue);
-                              
+
                             })
-                            
+
                         });
                         console.log(playtime)
                         for (const index in playtime) {
                             let finalOutput = []
-                            for (const index2 in playtime[index]) { 
+                            for (const index2 in playtime[index]) {
                                 finalOutput.push(module.exports.formatDuration(playtime[index][index2]))
                             }
                             finalOutput.unshift(index.toString()) //adds screen name to front of array
