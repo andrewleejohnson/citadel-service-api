@@ -688,7 +688,7 @@ module.exports = {
                                     ...results.map(row => row.distinct))
                                 )
                             )
-                        });
+                        }).lean();
 
                         for (const date of results) {
                             keys.push(date['_id']);
