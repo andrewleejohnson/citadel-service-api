@@ -673,6 +673,11 @@ module.exports = {
                                         $addToSet: "$screen"
                                     }
                                 }
+                            },
+                            {
+                                $sort: {
+                                    _id: 1
+                                }
                             }
                         ]).option(aggregationConfig).allowDiskUse(true);
 
